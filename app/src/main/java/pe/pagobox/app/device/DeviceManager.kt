@@ -100,6 +100,17 @@ class DeviceManager(
     suspend fun configureWifi(ssid: String, password: String) = link.send(DeviceProtocol.wifiConfig(ssid, password))
     suspend fun playTest() = link.send(DeviceProtocol.testAnnouncement())
 
+    /** Actualización de firmware por Wi-Fi local. Requiere que el equipo tenga IP y token vigentes. */
+    suspend fun updateFirmware(image: java.io.InputStream, length: Long): Result<Unit> {
+        val ip = dao.current()?.wifiIp ?: return Result.failure(IllegalStateException("El equipo no está conectado al Wi-Fi"))
+        val token = audioToken ?: return Result.failure(IllegalStateException("El equipo no está conectado por Bluetooth"))
+        if (length <= 0) return Result.failure(IllegalArgumentException("Archivo vacío"))
+        log.info("Equipo", "Enviando actualización de firmware ($length bytes)")
+        return uploader.uploadFirmware(ip, token, image, length).onSuccess {
+            log.info("Equipo", "Firmware enviado; el equipo se reiniciará")
+        }.onFailure { log.error("Equipo", "Falló la actualización de firmware", it) }
+    }
+
     /**
      * Entrega un evento: mensaje por BLE -> ACK RECEIVED -> audio por Wi-Fi (si hay)
      * -> ACK PLAYED. [synthesize] genera el WAV de la frase.

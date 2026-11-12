@@ -1,29 +1,35 @@
 # Firmware PAGOBOX Device (ESP32-S3)
 
-Proyecto ESP-IDF (v5.x) con FreeRTOS.
+ESP-IDF 5.3 · FreeRTOS · NimBLE · LVGL 9 (vía `esp_lvgl_port`).
 
-## Compilar
+## Compilar y grabar
 
 ```bash
 . $IDF_PATH/export.sh
 cd firmware
 idf.py set-target esp32s3
+idf.py menuconfig      # PAGOBOX hardware: pines y tamaño de pantalla
 idf.py build flash monitor
 ```
 
-## Qué incluye hoy
+Pruebas de la lógica en el host (sin hardware):
 
-| Módulo | Estado |
+```bash
+cd firmware/test_host && cmake -B build -S . && cmake --build build && ./build/pagobox_host_tests
+```
+
+## Módulos
+
+| Carpeta | Responsabilidad |
 |---|---|
-| `protocol.c` | Lectura de `PAYMENT_EVENT`, construcción de ACK y control de secuencia |
-| `display_state.c` | Estados de pantalla: esperando, nuevo pago, desconectado (vuelve solo a la principal) |
-| `main.c` | NVS (última secuencia persistente), cola de mensajes, watchdog de tareas |
+| `main/main.c` | Tareas de eventos e interfaz; flujo ACK → pantalla → audio → ACK de reproducción |
+| `main/protocol.c` | Mensajes JSON, ACK, STATUS, control de secuencia, texto y formato de importes |
+| `main/bluetooth/` | Servicio GATT con vinculación LE Secure Connections (código en pantalla) |
+| `main/display/` | Estados de pantalla y UI LVGL en ST7789 |
+| `main/audio/` | Salida I2S al MAX98357, volumen, tono de aviso y lectura de WAV |
+| `main/net/` | Wi-Fi local, servidor HTTP para audio y OTA con token |
+| `main/power/` | Batería (ADC calibrado), carga, botones y LED RGB |
+| `main/storage/` | Configuración persistente en NVS |
+| `main/diagnostics/` | Último error para pantalla y celular |
 
-## Pendiente
-
-- Servicio BLE GATT (control, estado, eventos) — fase 4.
-- Transporte de audio por Wi-Fi local y paquete de voces preinstaladas — fase 4, a validar en prototipo.
-- Driver de pantalla TFT IPS, salida I2S al amplificador clase D, LED RGB y botones — fase 5.
-- Gestión de batería, OTA y cifrado/emparejamiento — fases 5 y 7.
-
-Este firmware aún no se ha compilado en hardware real.
+Conexiones y componentes: [docs/hardware.md](../docs/hardware.md).

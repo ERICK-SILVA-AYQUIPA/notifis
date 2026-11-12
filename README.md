@@ -14,29 +14,42 @@ ESP32 con pantalla y parlante que los anuncia en voz alta.
 | Carpeta | Contenido |
 |---|---|
 | `domain/` | Modelos y máquina de estados de eventos (Kotlin puro) |
-| `payment-engine/` | Motor de pagos: adaptadores por entidad, lectura de importes, clasificación, deduplicación, verificación, cola de anuncios, frases de voz y protocolo |
-| `app/` | App Android (Kotlin + Compose): lector de notificaciones, voz TTS y diagnóstico |
-| `firmware/` | Firmware ESP32-S3 (ESP-IDF): protocolo, estados de pantalla, NVS |
-| `docs/` | Especificación, protocolo y registro de compatibilidad bancaria |
+| `payment-engine/` | Motor de pagos: adaptadores por entidad, importes, clasificación, deduplicación, verificación, cola de anuncios, frases y protocolo |
+| `app/` | App Android (Kotlin, Compose, Room, TTS, BLE): lector de notificaciones, anuncios, historial, voz, equipo y diagnóstico |
+| `firmware/` | Firmware ESP32-S3 (ESP-IDF, FreeRTOS, NimBLE, LVGL): BLE cifrado, pantalla, audio I2S, Wi-Fi local, OTA, batería y botones |
+| `docs/` | Especificación, protocolo, hardware, manuales, pruebas y limitaciones |
 
-## Estado actual (fase 1–2)
+## Documentación
 
-- ✅ Motor de pagos con pruebas unitarias (`./gradlew test`).
-- ✅ App Android base: lector de notificaciones, voz en español y pantalla de diagnóstico.
-- ✅ Firmware base: protocolo de eventos, ACK, control de secuencia y estados de pantalla.
-- ⏳ **Ninguna entidad está habilitada todavía.** Las reglas de Yape, Plin y bancos se escribirán
-  a partir de notificaciones reales recopiladas con autorización (ver
-  [docs/compatibilidad-bancaria.md](docs/compatibilidad-bancaria.md)).
-- ⏳ Persistencia con Room, BLE GATT, audio por Wi-Fi y hardware.
+| Documento | Contenido |
+|---|---|
+| [Especificación maestra](docs/especificacion-maestra.md) | Requisitos del producto |
+| [Protocolo](docs/protocolo.md) | BLE GATT, mensajes, ACK, audio y OTA |
+| [Hardware](docs/hardware.md) | Componentes, conexiones, botones y LED |
+| [Manual de instalación](docs/manual-instalacion.md) | App, firmware y vinculación |
+| [Manual de usuario](docs/manual-usuario.md) | Uso diario de la app |
+| [Informe de pruebas](docs/informe-pruebas.md) | Pruebas automáticas y pendientes |
+| [Compatibilidad bancaria](docs/compatibilidad-bancaria.md) | Entidades realmente compatibles |
+| [Limitaciones conocidas](docs/limitaciones.md) | Lo que el sistema aún no hace |
+| [Actualización y recuperación](docs/actualizacion-recuperacion.md) | OTA, migraciones y solución de problemas |
+
+## Estado actual
+
+- ✅ Motor de pagos con pruebas unitarias.
+- ✅ App Android completa: configuración inicial, inicio, historial, detalle, bancos, voz, equipo, diagnóstico,
+  negocio y configuración; base de datos Room; anuncios en el celular y en el equipo con ACK y reintentos.
+- ✅ Firmware del equipo: BLE con vinculación cifrada, pantalla, voz por Wi-Fi local, tono de respaldo, batería,
+  botones, LED, OTA con reversión y watchdog.
+- ✅ Compilación y pruebas automáticas en cada cambio (APK y firmware descargables desde GitHub Actions).
+- ⏳ **Ninguna entidad está habilitada todavía.** Las reglas de Yape, Plin y bancos se escriben a partir de
+  notificaciones reales recopiladas con autorización (fase 1).
+- ⏳ Pruebas en celulares reales y en el prototipo físico (ver [informe de pruebas](docs/informe-pruebas.md)).
 
 ## Compilar
 
 ```bash
-# Motor y pruebas (no necesita Android SDK)
-./gradlew test
-
-# App Android: abrir el proyecto en Android Studio (crea local.properties con el SDK)
-./gradlew :app:assembleDebug
+./gradlew test                 # motor y pruebas (no necesita Android SDK)
+./gradlew :app:assembleDebug   # app Android (necesita Android SDK)
 ```
 
 Firmware: ver [firmware/README.md](firmware/README.md).

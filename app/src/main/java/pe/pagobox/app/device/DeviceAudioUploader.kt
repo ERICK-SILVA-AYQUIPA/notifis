@@ -3,6 +3,7 @@ package pe.pagobox.app.device
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -34,4 +35,26 @@ class DeviceAudioUploader {
             }
         }
     }
+
+    /** Envía una imagen de firmware al equipo (POST /ota). El equipo reinicia al terminar. */
+    suspend fun uploadFirmware(ip: String, token: String, image: InputStream, length: Long): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val conn = URL("http://$ip:${DeviceProtocol.AUDIO_PORT}/ota").openConnection() as HttpURLConnection
+                try {
+                    conn.requestMethod = "POST"
+                    conn.connectTimeout = 5_000
+                    conn.readTimeout = 120_000
+                    conn.doOutput = true
+                    conn.setRequestProperty("Content-Type", "application/octet-stream")
+                    conn.setRequestProperty("X-Pagobox-Token", token)
+                    conn.setFixedLengthStreamingMode(length)
+                    conn.outputStream.use { out -> image.copyTo(out) }
+                    val code = conn.responseCode
+                    check(code in 200..299) { "El equipo rechazó la imagen (HTTP $code)" }
+                } finally {
+                    conn.disconnect()
+                }
+            }
+        }
 }

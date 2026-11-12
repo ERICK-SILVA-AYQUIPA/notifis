@@ -71,6 +71,22 @@ fun DeviceManagementScreen(container: AppContainer) {
 
     DisposableEffect(Unit) { onDispose { scanJob?.cancel() } }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val firmwarePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        message = "Enviando firmware…"
+        scope.launch {
+            val resolver = context.contentResolver
+            val length = resolver.openAssetFileDescriptor(uri, "r")?.use { it.length } ?: -1L
+            val result = resolver.openInputStream(uri)?.use { container.devices.updateFirmware(it, length) }
+                ?: Result.failure(IllegalStateException("No se pudo abrir el archivo"))
+            message = result.fold(
+                onSuccess = { "Firmware enviado. El equipo se reiniciará y volverá a conectarse." },
+                onFailure = { "No se pudo actualizar: ${it.message}" },
+            )
+        }
+    }
+
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -97,6 +113,7 @@ fun DeviceManagementScreen(container: AppContainer) {
                 onTest = { scope.launch { message = if (container.devices.playTest()) "Prueba enviada al equipo" else "El equipo no está conectado" } },
                 onWifi = { wifiDialog = true },
                 onReconnect = { container.bleLink.connect(device.bleAddress) },
+                onFirmware = { firmwarePicker.launch(arrayOf("application/octet-stream", "*/*")) },
                 onForget = { scope.launch { container.devices.forget(device) } },
             )
         } else {
@@ -156,6 +173,7 @@ private fun PairedDeviceCard(
     onTest: () -> Unit,
     onWifi: () -> Unit,
     onReconnect: () -> Unit,
+    onFirmware: () -> Unit,
     onForget: () -> Unit,
 ) {
     var volume by remember(device.volume) { mutableFloatStateOf((device.volume ?: 70).toFloat()) }
@@ -178,6 +196,9 @@ private fun PairedDeviceCard(
             Button(onClick = onTest, enabled = state == BleDeviceLink.State.READY) { Text("Probar") }
             OutlinedButton(onClick = onWifi, enabled = state == BleDeviceLink.State.READY) { Text("Wi-Fi") }
             if (state != BleDeviceLink.State.READY) OutlinedButton(onClick = onReconnect) { Text("Reconectar") }
+        }
+        OutlinedButton(onClick = onFirmware, enabled = state == BleDeviceLink.State.READY && device.wifiIp != null) {
+            Text("Actualizar firmware (.bin)")
         }
         TextButton(onClick = onForget) { Text("Desvincular equipo", color = MaterialTheme.colorScheme.error) }
     }
