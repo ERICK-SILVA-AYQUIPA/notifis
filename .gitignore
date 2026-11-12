@@ -1,0 +1,22 @@
+# Gradle / Kotlin
+.gradle/
+build/
+.kotlin/
+local.properties
+*.iml
+.idea/
+captures/
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# ESP-IDF
+firmware/build/
+firmware/sdkconfig
+firmware/sdkconfig.old
+firmware/managed_components/
+
+# Sistema
+.DS_Store
+Thumbs.db
