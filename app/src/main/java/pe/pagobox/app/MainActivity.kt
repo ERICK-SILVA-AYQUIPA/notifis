@@ -1,23 +1,27 @@
 package pe.pagobox.app
 
-import android.content.Intent
 import android.os.Bundle
-import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import pe.pagobox.app.ui.DiagnosticsScreen
+import androidx.activity.enableEdgeToEdge
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import pe.pagobox.app.ui.navigation.PagoboxApp
+import pe.pagobox.app.ui.theme.PagoboxTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
-        val app = application as PagoboxApplication
+        enableEdgeToEdge()
+        val container = container
+        // Lectura única y rápida de una fila de configuración, mientras se muestra el splash.
+        val onboardingDone = runBlocking { container.settings.settings.first().onboardingDone }
         setContent {
-            DiagnosticsScreen(
-                app = app,
-                onOpenNotificationAccess = {
-                    startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                },
-            )
+            PagoboxTheme {
+                PagoboxApp(container, onboardingDone)
+            }
         }
     }
 }

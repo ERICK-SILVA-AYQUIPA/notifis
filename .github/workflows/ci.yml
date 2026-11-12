@@ -40,7 +40,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Pruebas del protocolo en host
+        shell: bash
         run: |
+          . $IDF_PATH/export.sh
           cd firmware/test_host
           cmake -B build -S . && cmake --build build && ./build/pagobox_host_tests
       - name: Compilar firmware

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  PAGOBOX no se comunica con servidores de Internet. El único tráfico de red es el envío
+  de audio al equipo PAGOBOX dentro de la red Wi-Fi local, cuya IP la asigna el router,
+  por eso se permite HTTP local. Ese canal se autentica con un token recibido por BLE cifrado.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
