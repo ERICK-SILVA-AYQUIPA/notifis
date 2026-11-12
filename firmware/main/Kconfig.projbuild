@@ -1,0 +1,71 @@
+menu "PAGOBOX hardware"
+
+    config PB_LCD_WIDTH
+        int "Ancho de la pantalla (px)"
+        default 240
+    config PB_LCD_HEIGHT
+        int "Alto de la pantalla (px)"
+        default 240
+    config PB_LCD_PIN_SCLK
+        int "LCD SCLK"
+        default 12
+    config PB_LCD_PIN_MOSI
+        int "LCD MOSI"
+        default 11
+    config PB_LCD_PIN_CS
+        int "LCD CS"
+        default 10
+    config PB_LCD_PIN_DC
+        int "LCD DC"
+        default 9
+    config PB_LCD_PIN_RST
+        int "LCD RST"
+        default 8
+    config PB_LCD_PIN_BL
+        int "LCD retroiluminación"
+        default 7
+
+    config PB_I2S_PIN_BCLK
+        int "I2S BCLK (MAX98357)"
+        default 4
+    config PB_I2S_PIN_WS
+        int "I2S LRC/WS (MAX98357)"
+        default 5
+    config PB_I2S_PIN_DOUT
+        int "I2S DIN (MAX98357)"
+        default 6
+    config PB_AMP_PIN_SD
+        int "Habilitación del amplificador (SD), -1 si no se usa"
+        default 15
+
+    config PB_BATTERY_ADC_GPIO
+        int "GPIO del divisor de batería"
+        default 1
+    config PB_BATTERY_DIVIDER_X10
+        int "Relación del divisor de tensión x10 (20 = 1:2)"
+        default 20
+    config PB_CHARGE_PIN
+        int "GPIO de estado de carga (activo en bajo), -1 si no se usa"
+        default 2
+
+    config PB_BTN_VOL_UP
+        int "Botón subir volumen"
+        default 16
+    config PB_BTN_VOL_DOWN
+        int "Botón bajar volumen"
+        default 17
+    config PB_BTN_MUTE
+        int "Botón silencio / repetir último"
+        default 18
+
+    config PB_LED_R
+        int "LED RGB rojo"
+        default 38
+    config PB_LED_G
+        int "LED RGB verde"
+        default 39
+    config PB_LED_B
+        int "LED RGB azul"
+        default 40
+
+endmenu

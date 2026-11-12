@@ -6,9 +6,11 @@ set(CJSON_DIR "$ENV{IDF_PATH}/components/json/cJSON")
 add_executable(pagobox_host_tests
     test_main.c
     ../main/protocol.c
-    ../main/display_state.c
+    ../main/display/display_state.c
+    ../main/audio/wav.c
+    ../main/power/battery_math.c
     ${CJSON_DIR}/cJSON.c
 )
-target_include_directories(pagobox_host_tests PRIVATE ../main ${CJSON_DIR})
+target_include_directories(pagobox_host_tests PRIVATE ../main ../main/display ${CJSON_DIR})
 target_compile_options(pagobox_host_tests PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(pagobox_host_tests m)

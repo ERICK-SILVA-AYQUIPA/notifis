@@ -14,6 +14,7 @@ captures/
 # ESP-IDF
 firmware/build/
 firmware/sdkconfig
+firmware/dependencies.lock
 firmware/sdkconfig.old
 firmware/managed_components/
 
