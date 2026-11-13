@@ -33,17 +33,35 @@ interface PaymentEventDao {
     @Query("SELECT COALESCE(MAX(sequence), 0) FROM payment_events")
     suspend fun maxSequence(): Long
 
-    @Query(
-        "UPDATE payment_events SET announcementStatus = :status, state = :state, updatedAt = :now " +
-            "WHERE eventId = :eventId",
-    )
-    suspend fun updateAnnouncement(eventId: String, status: String, state: String, now: Long)
+    @Query("SELECT * FROM payment_events WHERE provider = :provider AND externalTransactionId = :externalId")
+    suspend fun byProviderExternalId(provider: String, externalId: String): PaymentEventEntity?
 
     @Query(
-        "UPDATE payment_events SET verificationStatus = 'VERIFIED', state = 'VERIFIED', updatedAt = :now " +
-            "WHERE eventId = :eventId",
+        "SELECT * FROM payment_events WHERE sourceChannel = 'ANDROID_NOTIFICATION' " +
+            "AND verificationStatus = 'INCOME_CANDIDATE' AND eventTimestamp >= :from",
     )
-    suspend fun markVerified(eventId: String, now: Long)
+    suspend fun androidCandidatesSince(from: Long): List<PaymentEventEntity>
+
+    /** Un posible ingreso Android que resultó ser el mismo pago que uno oficial: no se vuelve a anunciar. */
+    @Query(
+        "UPDATE payment_events SET verificationStatus = 'DUPLICATE', duplicateOf = :duplicateOf, " +
+            "announcementStatus = CASE WHEN announcementStatus IN ('PENDING','DELIVERED') THEN 'SKIPPED' ELSE announcementStatus END, " +
+            "stateReason = :reason, updatedAt = :now WHERE eventId = :eventId AND verificationStatus = 'INCOME_CANDIDATE'",
+    )
+    suspend fun markDuplicate(eventId: String, duplicateOf: String, reason: String, now: Long): Int
+
+    @Query("UPDATE payment_events SET possibleMatchOf = :other, updatedAt = :now WHERE eventId = :eventId")
+    suspend fun setPossibleMatch(eventId: String, other: String, now: Long)
+
+    @Query(
+        "UPDATE payment_events SET verificationStatus = :status, amountCents = :amountCents, currency = :currency, " +
+            "announcementStatus = :announcement, stateReason = :reason, updatedAt = :now WHERE eventId = :eventId",
+    )
+    suspend fun updateOfficial(eventId: String, status: String, amountCents: Long?, currency: String?, announcement: String, reason: String, now: Long)
+
+    /** Solo cambia el anuncio; la verificación es otra dimensión y no se toca aquí. */
+    @Query("UPDATE payment_events SET announcementStatus = :status, updatedAt = :now WHERE eventId = :eventId")
+    suspend fun updateAnnouncement(eventId: String, status: String, now: Long)
 
     @Query("DELETE FROM payment_events WHERE detectedTimestamp < :before")
     suspend fun deleteOlderThan(before: Long): Int
@@ -214,4 +232,22 @@ interface PhysicalTestDao {
 
     @Query("DELETE FROM physical_test_results")
     suspend fun deleteAll()
+}
+
+@Dao
+interface UnknownFinancialAppDao {
+    @Query("SELECT * FROM unknown_financial_apps WHERE dismissed = 0 ORDER BY lastSeenAt DESC")
+    fun observeActive(): Flow<List<UnknownFinancialAppEntity>>
+
+    @Query("SELECT * FROM unknown_financial_apps WHERE packageName = :packageName")
+    suspend fun get(packageName: String): UnknownFinancialAppEntity?
+
+    @Upsert
+    suspend fun upsert(app: UnknownFinancialAppEntity)
+
+    @Query("UPDATE unknown_financial_apps SET dismissed = :dismissed WHERE packageName = :packageName")
+    suspend fun setDismissed(packageName: String, dismissed: Boolean)
+
+    @Query("DELETE FROM unknown_financial_apps WHERE packageName = :packageName")
+    suspend fun delete(packageName: String)
 }

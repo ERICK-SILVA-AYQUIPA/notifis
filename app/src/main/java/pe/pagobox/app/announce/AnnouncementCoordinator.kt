@@ -20,10 +20,10 @@ import pe.pagobox.app.data.repositories.DiagnosticsLogger
 import pe.pagobox.app.data.repositories.PaymentRepository
 import pe.pagobox.app.device.DeliveryResult
 import pe.pagobox.app.device.DeviceManager
+import pe.pagobox.app.system.ShortWakeLock
 import pe.pagobox.app.voice.AndroidVoiceEngine
 import pe.pagobox.app.voice.PhraseSelector
 import pe.pagobox.domain.model.AnnouncementStatus
-import pe.pagobox.domain.model.EventState
 import pe.pagobox.domain.model.PaymentEvent
 import pe.pagobox.engine.queue.AnnouncementQueue
 import java.time.Instant
@@ -42,6 +42,7 @@ class AnnouncementCoordinator(
     private val historyDao: AnnouncementHistoryDao,
     private val voice: AndroidVoiceEngine,
     private val devices: DeviceManager,
+    private val wakeLock: ShortWakeLock,
     private val log: DiagnosticsLogger,
     private val scope: CoroutineScope,
 ) {
@@ -86,7 +87,7 @@ class AnnouncementCoordinator(
                 continue
             }
             queue.muteUntil(current.mutedUntil)
-            val ok = announce(event, current.output, current.phoneFallback)
+            val ok = wakeLock.hold("announce", ANNOUNCE_WAKE_MS) { announce(event, current.output, current.phoneFallback, current.announceCandidates) }
             if (ok) {
                 queue.markAnnounced(event.eventId)
             } else {
@@ -96,10 +97,21 @@ class AnnouncementCoordinator(
         }
     }
 
-    private suspend fun announce(event: PaymentEvent, output: AnnouncementOutput, phoneFallback: Boolean): Boolean {
+    private suspend fun announce(
+        event: PaymentEvent,
+        output: AnnouncementOutput,
+        phoneFallback: Boolean,
+        announceCandidates: Boolean,
+    ): Boolean {
+        if (!event.isProviderConfirmed && !announceCandidates) {
+            // El comerciante pidió anunciar solo pagos confirmados por un proveedor oficial.
+            payments.updateAnnouncement(event.eventId, AnnouncementStatus.SKIPPED)
+            log.info("Anuncios", "${event.eventId} no se anuncia: es un posible ingreso sin confirmación oficial")
+            return true
+        }
         if (Instant.now().toEpochMilli() - event.detectedTimestamp.toEpochMilli() > MAX_PENDING_AGE_MS) {
             // Un aviso muy atrasado confundiría al comerciante: se registra como no entregado.
-            payments.updateAnnouncement(event.eventId, AnnouncementStatus.FAILED, EventState.DELIVERY_FAILED)
+            payments.updateAnnouncement(event.eventId, AnnouncementStatus.FAILED)
             log.warn("Anuncios", "${event.eventId} no se anunció a tiempo; queda en el historial como no entregado")
             return true
         }
@@ -107,7 +119,7 @@ class AnnouncementCoordinator(
         val phrase = PhraseSelector.select(event, templateDao.enabled(), profile.announceSender)
         if (phrase == null) {
             log.error("Anuncios", "No se pudo generar la frase de ${event.eventId}")
-            payments.updateAnnouncement(event.eventId, AnnouncementStatus.SKIPPED, EventState.PENDING_REVIEW)
+            payments.updateAnnouncement(event.eventId, AnnouncementStatus.SKIPPED)
             return true
         }
 
@@ -141,12 +153,12 @@ class AnnouncementCoordinator(
         }
 
         return if (played) {
-            payments.updateAnnouncement(event.eventId, AnnouncementStatus.ANNOUNCED, EventState.ANNOUNCED)
+            payments.updateAnnouncement(event.eventId, AnnouncementStatus.ANNOUNCED)
             _lastError.value = null
             true
         } else {
             // Sigue pendiente en la base de datos para reintentar.
-            payments.updateAnnouncement(event.eventId, AnnouncementStatus.PENDING, EventState.DELIVERY_FAILED)
+            payments.updateAnnouncement(event.eventId, AnnouncementStatus.PENDING)
             false
         }
     }
@@ -156,6 +168,8 @@ class AnnouncementCoordinator(
 
     companion object {
         private const val RETRY_DELAY_MS = 15_000L
+        /** Síntesis + entrega al equipo con ACK + voz en el celular; tope de seguridad. */
+        private const val ANNOUNCE_WAKE_MS = 120_000L
         private const val MAX_PENDING_AGE_MS = 30L * 60 * 1000
         val DEFAULT_VOICE = VoiceProfileEntity(voiceName = null, speechRate = 1.0f, pitch = 1.0f, volume = 100, announceSender = true)
     }

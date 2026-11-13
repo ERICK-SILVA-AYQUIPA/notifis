@@ -21,22 +21,39 @@ enum class EventType {
     OTHER,
 }
 
-/** Estados del ciclo de vida de un evento (sección 2.3 de la especificación). */
-enum class EventState {
-    RECEIVED,
-    PARSED,
-    INCOME_CANDIDATE,
-    VERIFIED,
-    ANNOUNCED,
-    DUPLICATE,
-    REJECTED,
-    PENDING_REVIEW,
-    DELIVERY_FAILED,
+/** Canal por el que llegó el evento (arquitectura híbrida). */
+enum class SourceChannel(val label: String) {
+    /** Canal A: notificación leída en el celular. Nunca es prueba oficial de pago. */
+    ANDROID_NOTIFICATION("Notificación Android"),
+    /** Canal B: webhook o consulta autenticada a un proveedor autorizado, procesado en el backend. */
+    OFFICIAL_WEBHOOK("Proveedor oficial"),
 }
 
-/** Separación entre pagos detectados (por notificación) y verificados (por fuente oficial). */
-enum class VerificationStatus { DETECTED, VERIFIED }
+/** Proveedores oficiales del Canal B. Que exista aquí no significa que esté conectado. */
+enum class ProviderId(val displayName: String) {
+    MERCADO_PAGO("Mercado Pago"),
+    IZIPAY("Izipay"),
+}
 
+/**
+ * Nivel de confianza / verificación del evento. Es independiente del anuncio ([AnnouncementStatus]):
+ * un evento ya anunciado como posible ingreso puede confirmarse después.
+ */
+enum class VerificationStatus(val label: String) {
+    /** Recibido y aún no clasificado. */
+    DETECTED("Detectado"),
+    /** Notificación Android con forma de ingreso. No verificado. */
+    INCOME_CANDIDATE("Posible ingreso"),
+    /** Falta información (p. ej. importe) o se espera la respuesta de un proveedor. */
+    PENDING_VERIFICATION("Pendiente de verificación"),
+    /** Confirmado por un proveedor autorizado (firma válida y/o consulta autenticada). Solo Canal B. */
+    PROVIDER_CONFIRMED("Confirmado por el proveedor"),
+    REJECTED("Descartado"),
+    /** Otro evento representa el mismo pago (ver [PaymentEvent.duplicateOf]). */
+    DUPLICATE("Duplicado"),
+}
+
+/** Estado del anuncio (voz / equipo), separado de la verificación. */
 enum class AnnouncementStatus { PENDING, DELIVERED, ANNOUNCED, FAILED, SKIPPED }
 
 /**

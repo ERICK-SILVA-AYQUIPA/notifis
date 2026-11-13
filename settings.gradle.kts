@@ -28,6 +28,8 @@ rootProject.name = "pagobox"
 // Módulos Kotlin puros: se compilan y prueban sin Android SDK.
 include(":domain")
 include(":payment-engine")
+// Backend de integraciones oficiales (Canal B): JVM puro, no necesita Android SDK.
+include(":backend")
 
 // La app Android solo se incluye cuando hay un Android SDK disponible
 // (Android Studio crea local.properties con sdk.dir).

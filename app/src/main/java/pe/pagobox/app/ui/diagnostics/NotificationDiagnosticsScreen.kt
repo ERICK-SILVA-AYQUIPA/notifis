@@ -65,6 +65,7 @@ fun NotificationDiagnosticsScreen(container: AppContainer) {
     val samples by container.database.notificationSamples().observeRecent(200).collectAsStateWithLifecycle(initialValue = emptyList())
     val assignments by container.database.packageAssignments().observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
     val listenerOn by container.listenerConnected.collectAsStateWithLifecycle()
+    val unknownApps by container.database.unknownFinancialApps().observeActive().collectAsStateWithLifecycle(initialValue = emptyList())
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) { now = System.currentTimeMillis(); delay(1_000) }
@@ -119,6 +120,31 @@ fun NotificationDiagnosticsScreen(container: AppContainer) {
                 LabeledValue("Instalada desde", container.packageInspector.installerLabel(a.installer))
                 LabeledValue("Firma SHA-256", a.signingSha256?.take(23)?.plus("…") ?: "-")
                 TextButton(onClick = { scope.launch { container.processor.unassignPackage(a.packageName) } }) { Text("Quitar asignación") }
+            }
+        }
+
+        item { Text("Posibles apps financieras sin asignar (${unknownApps.size})", style = MaterialTheme.typography.titleMedium) }
+        item {
+            Text(
+                "Apps que mostraron un importe en soles o dólares y no están asociadas a ninguna entidad. " +
+                    "Se registran aunque el modo diagnóstico esté apagado; solo se guarda la app y cuántas veces " +
+                    "ocurrió, nunca el texto. Para ver sus notificaciones, active el modo diagnóstico.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        if (unknownApps.isEmpty()) item { Text("Ninguna.", style = MaterialTheme.typography.bodySmall) }
+        items(unknownApps, key = { "un_${it.packageName}" }) { u ->
+            SectionCard {
+                LabeledValue("App", "${u.appLabel ?: "?"} ${u.appVersion ?: ""}")
+                LabeledValue("Paquete", u.packageName)
+                LabeledValue("Instalada desde", container.packageInspector.installerLabel(u.installer))
+                LabeledValue("Notificaciones con importe", u.monetaryCount.toString())
+                LabeledValue("Primera vez", formatDateTime(u.firstSeenAt))
+                LabeledValue("Última vez", formatDateTime(u.lastSeenAt))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { assignTarget = u.packageName }) { Text("Asignar a entidad") }
+                    TextButton(onClick = { scope.launch { container.processor.dismissUnknownApp(u.packageName) } }) { Text("No es financiera") }
+                }
             }
         }
 

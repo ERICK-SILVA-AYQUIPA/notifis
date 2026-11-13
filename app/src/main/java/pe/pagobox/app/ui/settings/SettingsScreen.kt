@@ -42,6 +42,7 @@ fun SettingsScreen(
     onBusiness: () -> Unit,
     onNotificationDiagnostics: () -> Unit,
     onPhysicalTests: () -> Unit,
+    onIntegrations: () -> Unit,
 ) {
     val settings by container.settings.settings.collectAsStateWithLifecycle(initialValue = AppSettings())
     val scope = rememberCoroutineScope()
@@ -54,6 +55,7 @@ fun SettingsScreen(
         SectionCard {
             MenuItem("Negocio", "Nombre y datos del establecimiento", onBusiness)
             MenuItem("Bancos", "Estado de compatibilidad por entidad", onBanks)
+            MenuItem("Integraciones oficiales", "Mercado Pago, Izipay y servidor de confirmaciones", onIntegrations)
             MenuItem("Voz", "Voces, velocidad y frases", onVoice)
             MenuItem("Diagnóstico", "Estado del sistema y registro de eventos", onDiagnostics)
             MenuItem("Diagnóstico de notificaciones", "Identificar apps bancarias y guardar muestras anonimizadas", onNotificationDiagnostics)
@@ -73,6 +75,15 @@ fun SettingsScreen(
                 Text("Si el equipo no responde, anunciar en el celular", Modifier.weight(1f))
                 Switch(settings.phoneFallback, { scope.launch { container.settings.setPhoneFallback(it) } })
             }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Anunciar posibles ingresos detectados por notificación (no verificados)", Modifier.weight(1f))
+                Switch(settings.announceCandidates, { scope.launch { container.settings.setAnnounceCandidates(it) } })
+            }
+            Text(
+                "Si lo apagas, solo se anuncian los pagos confirmados por un proveedor oficial (Integraciones). " +
+                    "Los demás quedan en el historial.",
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
         SectionCard("Privacidad y seguridad") {
             Text(

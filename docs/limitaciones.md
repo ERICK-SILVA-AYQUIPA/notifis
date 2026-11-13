@@ -27,7 +27,7 @@
 | # | Pendiente | Bloqueado por | Prioridad |
 |---|---|---|---|
 | P1 | Formatos y paquetes oficiales de Yape, Plin, BCP, Interbank, BBVA, Scotiabank y Banco de la Nación | Muestras reales anonimizadas (diagnóstico de notificaciones) | Crítica |
-| P2 | Ejecutar el protocolo de pruebas físicas Android (AND-01 a AND-13) en la matriz mínima de celulares | Celulares físicos | Crítica |
+| P2 | Ejecutar el protocolo de pruebas físicas Android (AND-01 a AND-15) en la matriz mínima de celulares | Celulares físicos | Crítica |
 | P3 | Validar el prototipo de hardware (HW-01 a HW-08, BLE-01 a BLE-03) y medir latencias y autonomía | Prototipo armado | Crítica |
 | P4 | Comprobar la apertura de la base de datos al actualizar desde la versión 1 en un celular real | Celular con la versión anterior instalada | Alta |
 | P5 | Firma de la app para distribución (keystore de producción) | Decisión del comercio | Alta |

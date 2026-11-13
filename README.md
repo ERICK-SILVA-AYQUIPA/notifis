@@ -17,6 +17,7 @@ ESP32 con pantalla y parlante que los anuncia en voz alta.
 | `payment-engine/` | Motor de pagos: adaptadores por entidad, importes, clasificación, deduplicación, verificación, cola de anuncios, frases y protocolo |
 | `app/` | App Android (Kotlin, Compose, Room, TTS, BLE): lector de notificaciones, anuncios, historial, voz, equipo y diagnóstico |
 | `firmware/` | Firmware ESP32-S3 (ESP-IDF, FreeRTOS, NimBLE, LVGL): BLE cifrado, pantalla, audio I2S, Wi-Fi local, OTA, batería y botones |
+| `backend/` | Backend de integraciones oficiales (Canal B): webhooks firmados, idempotencia, auditoría, sandbox/producción; adaptador de Mercado Pago |
 | `docs/` | Especificación, protocolo, hardware, manuales, pruebas y limitaciones |
 
 ## Documentación
@@ -24,6 +25,9 @@ ESP32 con pantalla y parlante que los anuncia en voz alta.
 | Documento | Contenido |
 |---|---|
 | [Auditoría](docs/auditoria.md) | Estado real del repositorio, errores encontrados y corregidos |
+| [Arquitectura híbrida — Fase 1](docs/hibrido/fase-1-auditoria.md) | Auditoría frente al modelo Canal A (Android) + Canal B (webhooks oficiales) |
+| [Proveedores del Canal B](docs/hibrido/proveedores-canal-b.md) | Qué permiten Mercado Pago, Izipay y bancos (fuentes oficiales) |
+| [Fases 2 a 7](docs/hibrido/) | Captura Android, modelo normalizado, backend, Mercado Pago, unificación, equipo y panel |
 | [Especificación maestra](docs/especificacion-maestra.md) | Requisitos del producto |
 | [Protocolo](docs/protocolo.md) | BLE GATT, mensajes, ACK, audio y OTA |
 | [Hardware](docs/hardware.md) | Componentes, conexiones, botones y LED |
@@ -52,7 +56,8 @@ ESP32 con pantalla y parlante que los anuncia en voz alta.
 ## Compilar
 
 ```bash
-./gradlew test                 # motor y pruebas (no necesita Android SDK)
+./gradlew test                 # dominio, motor y backend (no necesita Android SDK)
+./gradlew :backend:run         # backend de webhooks (ver backend/README.md)
 ./gradlew :app:assembleDebug   # app Android (necesita Android SDK)
 ```
 

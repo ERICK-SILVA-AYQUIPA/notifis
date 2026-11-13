@@ -17,6 +17,7 @@ import pe.pagobox.app.diagnostics.HealthMonitor
 import pe.pagobox.app.diagnostics.NotificationDiagnostics
 import pe.pagobox.app.diagnostics.PackageInspector
 import pe.pagobox.app.payment.PaymentProcessor
+import pe.pagobox.app.system.ShortWakeLock
 import pe.pagobox.app.voice.AndroidVoiceEngine
 
 /**
@@ -31,6 +32,7 @@ class AppContainer(context: Context) {
     val settings = SettingsRepository(database.appSettings())
     val payments = PaymentRepository(database)
     val voice = AndroidVoiceEngine(context)
+    val wakeLock = ShortWakeLock(context)
 
     val bleLink = BleDeviceLink(context, log)
     val devices = DeviceManager(bleLink, database.devices(), DeviceAudioUploader(), log, scope)
@@ -44,6 +46,7 @@ class AppContainer(context: Context) {
         historyDao = database.announcementHistory(),
         voice = voice,
         devices = devices,
+        wakeLock = wakeLock,
         log = log,
         scope = scope,
     )
@@ -55,6 +58,8 @@ class AppContainer(context: Context) {
         repository = payments,
         assignmentDao = database.packageAssignments(),
         statusDao = database.sourceStatus(),
+        unknownAppDao = database.unknownFinancialApps(),
+        wakeLock = wakeLock,
         settings = settings,
         diagnostics = notificationDiagnostics,
         inspector = packageInspector,
@@ -63,6 +68,9 @@ class AppContainer(context: Context) {
         scope = scope,
         onIncome = { announcements.notifyNewIncome() },
     )
+
+    /** Canal B: eventos oficiales desde el backend propio (si está configurado). */
+    val officialSync = pe.pagobox.app.payment.OfficialEventsSync(settings, processor, log, scope)
 
     /** Estado del servicio lector, informado por el propio servicio. */
     val listenerConnected = kotlinx.coroutines.flow.MutableStateFlow(false)
@@ -79,6 +87,7 @@ class AppContainer(context: Context) {
             settings.settings.collect { diagnosticUntil = it.diagnosticUntil?.toEpochMilli() ?: 0L }
         }
         processor.start()
+        officialSync.start()
         devices.start()
         announcements.start()
     }

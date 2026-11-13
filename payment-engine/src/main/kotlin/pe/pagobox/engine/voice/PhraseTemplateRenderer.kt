@@ -3,7 +3,6 @@ package pe.pagobox.engine.voice
 import pe.pagobox.domain.model.EventType
 import pe.pagobox.domain.model.PaymentEvent
 import pe.pagobox.domain.model.SourceId
-import pe.pagobox.domain.model.VerificationStatus
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -62,18 +61,19 @@ class PhraseTemplateRenderer(
     }
 }
 
+/**
+ * Frases predeterminadas. Un evento solo **detectado** (notificación Android) nunca se anuncia como
+ * pago cobrado: se dice «posible ingreso». Solo un evento confirmado por un proveedor oficial usa
+ * «Pago confirmado». Así el comerciante distingue por el oído el nivel de confianza.
+ */
 object DefaultPhrases {
-    const val YAPE = "¡Te yapearon {monto_hablado}!"
-    const val PLIN = "¡Recibiste {monto_hablado} por Plin!"
-    const val BANK_TRANSFER = "¡Te hicieron una transferencia de {monto_hablado}!"
-    const val GENERIC = "¡Recibiste un pago de {monto_hablado}!"
-    const val VERIFIED = "¡Pago verificado por {monto_hablado}!"
+    const val DETECTED_WITH_SOURCE = "Se detectó un posible ingreso de {monto_hablado} por {banco}"
+    const val DETECTED = "Se detectó un posible ingreso de {monto_hablado}"
+    const val CONFIRMED = "¡Pago confirmado de {monto_hablado}!"
 
     fun forEvent(event: PaymentEvent): String = when {
-        event.verificationStatus == VerificationStatus.VERIFIED -> VERIFIED
-        event.source == SourceId.YAPE -> YAPE
-        event.source == SourceId.PLIN -> PLIN
-        event.source == SourceId.OTHER -> GENERIC
-        else -> BANK_TRANSFER
+        event.isProviderConfirmed -> CONFIRMED
+        event.source == SourceId.OTHER -> DETECTED
+        else -> DETECTED_WITH_SOURCE
     }
 }

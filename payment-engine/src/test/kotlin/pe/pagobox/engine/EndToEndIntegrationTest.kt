@@ -6,6 +6,9 @@ import pe.pagobox.engine.protocol.DeviceMessages
 import pe.pagobox.engine.queue.AnnouncementQueue
 import pe.pagobox.engine.source.RawNotification
 import pe.pagobox.engine.source.SourcePackageRegistry
+import pe.pagobox.engine.verification.ProviderConfirmation
+import pe.pagobox.engine.verification.VerificationEngine
+import pe.pagobox.domain.model.Money
 import pe.pagobox.engine.voice.PhraseTemplateRenderer
 import java.io.File
 import java.time.Clock
@@ -48,7 +51,7 @@ class EndToEndIntegrationTest {
         queue.enqueue(event)
         val next = queue.next(now)!!
         assertEquals(
-            "¡Recibiste un pago de 1250 soles con 50 céntimos!",
+            "Se detectó un posible ingreso de 1250 soles con 50 céntimos",
             PhraseTemplateRenderer().phraseFor(next),
         )
         assertEquals(File(fixtures, "payment_event.json").readText(), DeviceMessages.paymentEvent(next))
@@ -57,6 +60,20 @@ class EndToEndIntegrationTest {
         // Reconexión: el mismo evento no vuelve a anunciarse.
         queue.enqueue(event)
         assertNull(queue.next(now))
+    }
+
+    @Test
+    fun `pago confirmado por proveedor en sandbox coincide con el contrato`() {
+        // Datos de prueba: no provienen de un proveedor real.
+        val official = TestFixtures.officialEvent("evt_000002", externalId = "TEST-1", amount = "25.00")
+            .copy(sequence = 2, testMode = true)
+        val confirmed = VerificationEngine().confirm(
+            official,
+            ProviderConfirmation(official.provider!!, "TEST-1", Money.pen("25.00"), "approved",
+                signatureVerified = true, fetchedFromProviderApi = true),
+        )
+        assertEquals("¡Pago confirmado de 25 soles!", PhraseTemplateRenderer().phraseFor(confirmed))
+        assertEquals(File(fixtures, "payment_event_confirmed.json").readText(), DeviceMessages.paymentEvent(confirmed))
     }
 
     @Test

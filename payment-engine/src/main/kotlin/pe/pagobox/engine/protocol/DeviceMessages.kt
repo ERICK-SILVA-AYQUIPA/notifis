@@ -22,8 +22,13 @@ object DeviceMessages {
             "currency" to event.money?.currency?.code,
             "sender" to event.senderName,
             "timestamp" to isoOffset.format(event.eventTimestamp.atZone(zone)),
+            // Protocolo v2: estado real. El firmware solo trata como confirmado PROVIDER_CONFIRMED
+            // (o VERIFIED, del protocolo v1); cualquier otro valor se muestra como posible ingreso.
             "verificationStatus" to event.verificationStatus.name,
             "announcementStatus" to event.announcementStatus.name,
+            "channel" to event.sourceChannel.name,
+            "provider" to event.provider?.name,
+            "test" to event.testMode,
         )
         return toJson(fields)
     }
@@ -42,6 +47,7 @@ object DeviceMessages {
                 null -> "null"
                 is RawJson -> v.value
                 is Number -> v.toString()
+                is Boolean -> v.toString()
                 else -> "\"${escape(v.toString())}\""
             }
         }

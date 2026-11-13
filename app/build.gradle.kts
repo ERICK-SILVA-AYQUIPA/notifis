@@ -49,6 +49,12 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
+// Las variantes debug y release escriben el mismo archivo de esquema. En paralelo (`./gradlew test`)
+// una puede leer el archivo a medio escribir por la otra («Empty schema file»): se ejecutan en serie.
+tasks.matching { it.name == "kspReleaseKotlin" }.configureEach {
+    mustRunAfter(tasks.matching { it.name == "kspDebugKotlin" })
+}
+
 dependencies {
     implementation(project(":payment-engine"))
 

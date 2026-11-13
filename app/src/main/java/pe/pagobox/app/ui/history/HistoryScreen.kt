@@ -26,11 +26,14 @@ import pe.pagobox.app.data.local.PaymentEventEntity
 import pe.pagobox.app.ui.components.Pill
 import pe.pagobox.app.ui.components.formatDateTime
 import pe.pagobox.app.ui.components.formatMoney
-import pe.pagobox.app.ui.components.stateLabel
+import pe.pagobox.app.ui.components.announcementLabel
+import pe.pagobox.app.ui.components.channelLabel
+import pe.pagobox.app.ui.components.verificationLabel
 import pe.pagobox.app.ui.theme.StatusError
 import pe.pagobox.app.ui.theme.StatusNeutral
 import pe.pagobox.app.ui.theme.StatusOk
 import pe.pagobox.app.ui.theme.StatusWarn
+import pe.pagobox.domain.model.ProviderId
 import pe.pagobox.domain.model.SourceId
 
 @Composable
@@ -54,22 +57,26 @@ private fun EventRow(e: PaymentEventEntity, onClick: () -> Unit) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(formatMoney(e.amountCents, e.currency), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Text(
-                    listOfNotNull(SourceId.valueOf(e.sourceId).displayName, e.senderName).joinToString(" · "),
+                    listOfNotNull(
+                        SourceId.valueOf(e.sourceId).displayName,
+                        e.provider?.let { runCatching { ProviderId.valueOf(it).displayName }.getOrDefault(it) },
+                        e.senderName,
+                    ).joinToString(" · "),
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                Text(formatDateTime(e.eventTimestamp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(formatDateTime(e.eventTimestamp) + " · " + channelLabel(e.sourceChannel), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Pill(stateLabel(e.state), stateColor(e.state))
-                Pill(if (e.verificationStatus == "VERIFIED") "Verificado" else "Detectado", if (e.verificationStatus == "VERIFIED") StatusOk else StatusNeutral)
+                Pill(verificationLabel(e.verificationStatus), verificationColor(e.verificationStatus))
+                Pill(announcementLabel(e.announcementStatus), if (e.announcementStatus == "ANNOUNCED") StatusOk else StatusNeutral)
             }
         }
     }
 }
 
-fun stateColor(state: String) = when (state) {
-    "ANNOUNCED", "VERIFIED" -> StatusOk
-    "INCOME_CANDIDATE", "PENDING_REVIEW" -> StatusWarn
-    "DELIVERY_FAILED", "REJECTED" -> StatusError
+fun verificationColor(status: String) = when (status) {
+    "PROVIDER_CONFIRMED" -> StatusOk
+    "INCOME_CANDIDATE", "PENDING_VERIFICATION" -> StatusWarn
+    "REJECTED" -> StatusError
     else -> StatusNeutral
 }

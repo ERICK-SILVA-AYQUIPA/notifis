@@ -46,10 +46,24 @@ static pb_parse_result_t parse_payment(const cJSON *root, pb_payment_event_t *ou
     }
 
     const cJSON *verification = cJSON_GetObjectItemCaseSensitive(root, "verificationStatus");
-    out->verification = (cJSON_IsString(verification) && strcmp(verification->valuestring, "VERIFIED") == 0)
-                            ? PB_VERIFICATION_VERIFIED
-                            : PB_VERIFICATION_DETECTED;
+    /* v2 envía el estado real; v1 enviaba VERIFIED. Cualquier otro valor (o ausente) no es confirmación. */
+    bool confirmed = cJSON_IsString(verification) && (strcmp(verification->valuestring, "PROVIDER_CONFIRMED") == 0 ||
+                                                      strcmp(verification->valuestring, "VERIFIED") == 0);
+    out->verification = confirmed ? PB_VERIFICATION_VERIFIED : PB_VERIFICATION_DETECTED;
+
+    const cJSON *test = cJSON_GetObjectItemCaseSensitive(root, "test");
+    out->test_mode = cJSON_IsTrue(test);
+    const cJSON *channel = cJSON_GetObjectItemCaseSensitive(root, "channel");
+    out->official = cJSON_IsString(channel) && strcmp(channel->valuestring, "OFFICIAL_WEBHOOK") == 0;
     return PB_PARSE_OK;
+}
+
+const char *pb_verification_label(const pb_payment_event_t *evt)
+{
+    if (evt->verification == PB_VERIFICATION_VERIFIED) {
+        return evt->test_mode ? "PRUEBA - Confirmado por proveedor" : "Confirmado por proveedor";
+    }
+    return evt->test_mode ? "PRUEBA - Posible ingreso (no verificado)" : "Posible ingreso (no verificado)";
 }
 
 pb_parse_result_t pb_parse_message(const char *json, pb_message_in_t *out)

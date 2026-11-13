@@ -43,6 +43,8 @@ Android casi puro, y al menos un equipo con Android 10–11 y otro con Android 1
 | AND-11 | Notificación que no es un ingreso | Hacer un pago/yapeo SALIENTE real desde la misma cuenta. | No se anuncia. Queda «Rechazado» o «Formato desconocido» en diagnóstico. | ☐ Aprobada ☐ Fallida ☐ Bloqueada | |
 | AND-12 | Código de seguridad | Solicitar un código OTP real de la app bancaria con el modo diagnóstico activo. | La captura muestra «[OMITIDO: posible código de seguridad]» y no se guarda el código. | ☐ Aprobada ☐ Fallida ☐ Bloqueada | |
 | AND-13 | Borrado de registros | Borrar una muestra y luego «Borrar todo». | Las muestras desaparecen y la exportación queda vacía. | ☐ Aprobada ☐ Fallida ☐ Bloqueada | |
+| AND-14 | App financiera no asignada | Con el modo diagnóstico APAGADO, recibir un pago real en una app bancaria que no esté asignada a ninguna entidad. | Aparece en «Posibles apps financieras sin asignar» con paquete y contador; no se anuncia ni se guarda el texto. | ☐ Aprobada ☐ Fallida ☐ Bloqueada | |
+| AND-15 | Pantalla apagada y equipo desconectado | Apagar el equipo PAGOBOX, apagar la pantalla del celular 10 min y recibir un pago real de una entidad configurada. | El evento queda en el historial; se anuncia en el celular (si está habilitado) o queda pendiente y se entrega al reconectar el equipo. | ☐ Aprobada ☐ Fallida ☐ Bloqueada | |
 
 ## 2. Bluetooth
 
@@ -76,6 +78,21 @@ Ficha del equipo: número de serie / MAC, versión de firmware, versión de plac
 | Autonomía con Wi-Fi + BLE | Batería llena hasta apagado, 1 anuncio cada 10 min | h |
 | Reconexión BLE tras salir de rango | 5 intentos | s |
 | Arranque tras corte de energía | 5 intentos | s |
+
+## 3b. Integraciones oficiales (Canal B)
+
+Requiere un backend desplegado con HTTPS y credenciales **de prueba** del proveedor configuradas por quien
+administra el servidor (nunca en el celular). Sin eso, estas pruebas quedan «Bloqueada».
+
+| Id | Prueba | Pasos | Resultado esperado | Resultado | Notas |
+|---|---|---|---|---|---|
+| HYB-01 | Posible ingreso en el equipo | Con el equipo conectado, recibir un pago real por notificación de una entidad configurada. | El equipo muestra «Posible ingreso (no verificado)» y la voz dice «Se detectó un posible ingreso de … por …». Nunca «confirmado». | ☐ Aprobada ☐ Fallida ☐ Bloqueada | |
+| HYB-02 | Servidor de integraciones | Ajustes > Integraciones oficiales: ingresar la URL HTTPS del backend de sandbox y el token del celular; «Guardar y probar». | Entorno «sandbox» y «Última sincronización correcta» con hora. Con un token incorrecto: «Token rechazado por el backend». Mercado Pago figura «Esperando primer webhook (sandbox)», nunca «Activa». | ☐ Aprobada ☐ Fallida ☐ Bloqueada | |
+| HYB-03 | Pago de prueba confirmado por Mercado Pago | Con credenciales DE PRUEBA de Mercado Pago en el servidor, cobrar con Yape en el checkout de prueba (número y OTP de prueba de la documentación oficial). Esperar hasta 40 s. | El historial muestra el pago «Confirmado por proveedor», canal webhook oficial, sandbox. Voz: «Prueba. ¡Pago confirmado de … !». Equipo: «PRUEBA - Confirmado por proveedor». El panel pasa a «Activa (sandbox)». | ☐ Aprobada ☐ Fallida ☐ Bloqueada | |
+| HYB-04 | Webhook con firma inválida | Desde una terminal, enviar al webhook de sandbox una petición con x-signature inventada. | El servidor responde 401, no se crea ningún evento y el panel muestra «Con errores» con el motivo de la firma. | ☐ Aprobada ☐ Fallida ☐ Bloqueada | |
+| HYB-05 | Solo pagos confirmados | Ajustes: apagar «Anunciar posibles ingresos…». Recibir un pago real por notificación y luego hacer HYB-03. | El pago por notificación queda en el historial como «Omitido», sin voz ni equipo. El pago de HYB-03 sí se anuncia. | ☐ Aprobada ☐ Fallida ☐ Bloqueada | |
+| HYB-06 | Confirmación con el equipo desconectado | Apagar el equipo, hacer HYB-03 y volver a encender el equipo. | El pago queda pendiente y se entrega al reconectar; se anuncia una sola vez. | ☐ Aprobada ☐ Fallida ☐ Bloqueada | |
+| HYB-07 | Mismo pago por los dos canales | Hacer HYB-03 con la app Yape del cobro instalada en el celular del comercio (si la notificación llega). | Si el remitente coincide, el posible ingreso queda «Duplicado» del confirmado y no se reanuncia; si falta el remitente, queda «posible mismo pago» sin fusionar. Anotar lo observado. | ☐ Aprobada ☐ Fallida ☐ Bloqueada | |
 
 ## 4. Prueba por entidad (para avanzar el estado de compatibilidad)
 

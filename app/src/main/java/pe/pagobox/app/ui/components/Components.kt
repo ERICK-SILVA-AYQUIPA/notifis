@@ -65,18 +65,12 @@ fun SystemHealth.label(): String = when (this) {
     SystemHealth.UNSUPERVISED -> "Sin supervisión"
 }
 
-fun stateLabel(state: String): String = when (state) {
-    "RECEIVED" -> "Recibido"
-    "PARSED" -> "Procesado"
-    "INCOME_CANDIDATE" -> "Ingreso detectado"
-    "VERIFIED" -> "Verificado"
-    "ANNOUNCED" -> "Anunciado"
-    "DUPLICATE" -> "Duplicado"
-    "REJECTED" -> "Descartado"
-    "PENDING_REVIEW" -> "Información insuficiente"
-    "DELIVERY_FAILED" -> "No entregado"
-    else -> state
-}
+/** Etiqueta del estado de verificación (independiente del anuncio). */
+fun verificationLabel(status: String): String =
+    runCatching { pe.pagobox.domain.model.VerificationStatus.valueOf(status).label }.getOrDefault(status)
+
+fun channelLabel(channel: String): String =
+    runCatching { pe.pagobox.domain.model.SourceChannel.valueOf(channel).label }.getOrDefault(channel)
 
 fun announcementLabel(status: String): String = when (status) {
     "PENDING" -> "Anuncio pendiente"

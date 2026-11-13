@@ -54,6 +54,7 @@ private object Routes {
     const val BUSINESS = "business"
     const val NOTIFICATION_DIAGNOSTICS = "notification_diagnostics"
     const val PHYSICAL_TESTS = "physical_tests"
+    const val INTEGRATIONS = "integrations"
 
     fun event(id: String) = "event/$id"
 }
@@ -79,6 +80,7 @@ private val titles = mapOf(
     Routes.BUSINESS to "Negocio",
     Routes.NOTIFICATION_DIAGNOSTICS to "Diagnóstico de notificaciones",
     Routes.PHYSICAL_TESTS to "Pruebas físicas",
+    Routes.INTEGRATIONS to "Integraciones oficiales",
     Routes.ONBOARDING to "Configuración inicial",
 )
 
@@ -146,6 +148,7 @@ fun PagoboxApp(container: AppContainer, onboardingDone: Boolean) {
                     onBusiness = { nav.navigate(Routes.BUSINESS) },
                     onNotificationDiagnostics = { nav.navigate(Routes.NOTIFICATION_DIAGNOSTICS) },
                     onPhysicalTests = { nav.navigate(Routes.PHYSICAL_TESTS) },
+                    onIntegrations = { nav.navigate(Routes.INTEGRATIONS) },
                 )
             }
             composable(Routes.EVENT, arguments = listOf(navArgument("eventId") { type = NavType.StringType })) {
@@ -154,6 +157,7 @@ fun PagoboxApp(container: AppContainer, onboardingDone: Boolean) {
             composable(Routes.BANKS) { BankSourcesScreen(container) { nav.navigate(Routes.NOTIFICATION_DIAGNOSTICS) } }
             composable(Routes.NOTIFICATION_DIAGNOSTICS) { NotificationDiagnosticsScreen(container) }
             composable(Routes.PHYSICAL_TESTS) { PhysicalTestsScreen(container) }
+            composable(Routes.INTEGRATIONS) { pe.pagobox.app.ui.integrations.IntegrationsScreen(container) }
             composable(Routes.VOICE) { VoiceSettingsScreen(container) }
             composable(Routes.DIAGNOSTICS) { DiagnosticsScreen(container) }
             composable(Routes.BUSINESS) { BusinessSettingsScreen(container) { nav.popBackStack() } }
