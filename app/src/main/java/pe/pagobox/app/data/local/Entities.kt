@@ -186,3 +186,22 @@ data class PhysicalTestResultEntity(
     val appVersion: String,
     val testedAt: Long,
 )
+
+/**
+ * App que publicó una notificación con un importe en soles o dólares y que no está asociada a
+ * ninguna entidad (Canal A, registro de apps desconocidas). Solo se guardan datos de la app y
+ * contadores: **nunca** el texto de la notificación. El usuario puede asignarla o descartarla.
+ */
+@Entity(tableName = "unknown_financial_apps")
+data class UnknownFinancialAppEntity(
+    @PrimaryKey val packageName: String,
+    val appLabel: String?,
+    val appVersion: String?,
+    val installer: String?,
+    val firstSeenAt: Long,
+    val lastSeenAt: Long,
+    /** Notificaciones con importe vistas desde esta app. */
+    val monetaryCount: Int,
+    /** El usuario indicó que no es una app financiera: se sigue contando, pero no se muestra. */
+    val dismissed: Boolean,
+)

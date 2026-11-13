@@ -215,3 +215,21 @@ interface PhysicalTestDao {
     @Query("DELETE FROM physical_test_results")
     suspend fun deleteAll()
 }
+
+@Dao
+interface UnknownFinancialAppDao {
+    @Query("SELECT * FROM unknown_financial_apps WHERE dismissed = 0 ORDER BY lastSeenAt DESC")
+    fun observeActive(): Flow<List<UnknownFinancialAppEntity>>
+
+    @Query("SELECT * FROM unknown_financial_apps WHERE packageName = :packageName")
+    suspend fun get(packageName: String): UnknownFinancialAppEntity?
+
+    @Upsert
+    suspend fun upsert(app: UnknownFinancialAppEntity)
+
+    @Query("UPDATE unknown_financial_apps SET dismissed = :dismissed WHERE packageName = :packageName")
+    suspend fun setDismissed(packageName: String, dismissed: Boolean)
+
+    @Query("DELETE FROM unknown_financial_apps WHERE packageName = :packageName")
+    suspend fun delete(packageName: String)
+}

@@ -98,13 +98,12 @@ No se permitirá pasar automáticamente de RECEIVED a VERIFIED solo por reconoce
 
 Esta será una de las funcionalidades principales del producto.
 
-**Frases predeterminadas:**
+**Frases predeterminadas** (actualizadas en la arquitectura híbrida, ver `docs/hibrido/`): un evento solo
+detectado por notificación nunca se anuncia como pago cobrado.
 
-- «¡Te yapearon [monto] soles!»
-- «¡Recibiste [monto] soles por Plin!»
-- «¡Te hicieron una transferencia de [monto] soles!»
-- «¡Recibiste un pago de [monto] soles!»
-- «¡Pago verificado por [monto] soles!»
+- Detectado (Canal A): «Se detectó un posible ingreso de [monto] soles por [entidad]»
+- Detectado sin entidad: «Se detectó un posible ingreso de [monto] soles»
+- Confirmado por un proveedor oficial (Canal B): «¡Pago confirmado de [monto] soles!»
 
 **Frases personalizadas:** el administrador podrá crear y editar frases utilizando variables:
 `{monto}`, `{moneda}`, `{banco}`, `{remitente}`, `{hora}`, `{tipo_operacion}`.
@@ -160,9 +159,9 @@ El sistema tendrá una cola de reproducción.
 
 | Orden | Evento | Anuncio |
 |---|---|---|
-| 1 | Yape S/20 | Te yapearon 20 soles |
-| 2 | Plin S/35 | Recibiste 35 soles por Plin |
-| 3 | BCP S/100 | Recibiste una transferencia de 100 soles |
+| 1 | Yape S/20 | Se detectó un posible ingreso de 20 soles por Yape |
+| 2 | Plin S/35 | Se detectó un posible ingreso de 35 soles por Plin |
+| 3 | BCP S/100 | Se detectó un posible ingreso de 100 soles por BCP |
 
 Requisitos:
 

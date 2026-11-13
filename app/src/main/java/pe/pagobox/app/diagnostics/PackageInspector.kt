@@ -15,7 +15,8 @@ data class PackageInfoSummary(
 
 /** Información verificable de una app instalada (para identificar paquetes oficiales). */
 class PackageInspector(private val context: Context) {
-    private val cache = mutableMapOf<String, PackageInfoSummary>()
+    // Se usa desde el hilo del lector y desde el procesador.
+    private val cache = java.util.concurrent.ConcurrentHashMap<String, PackageInfoSummary>()
 
     fun inspect(packageName: String, refresh: Boolean = false): PackageInfoSummary {
         if (!refresh) cache[packageName]?.let { return it }

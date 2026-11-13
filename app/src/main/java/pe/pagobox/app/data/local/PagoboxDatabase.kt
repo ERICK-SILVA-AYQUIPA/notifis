@@ -20,8 +20,9 @@ import androidx.room.RoomDatabase
         PackageAssignmentEntity::class,
         SourceStatusEntity::class,
         PhysicalTestResultEntity::class,
+        UnknownFinancialAppEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class PagoboxDatabase : RoomDatabase() {
@@ -38,6 +39,7 @@ abstract class PagoboxDatabase : RoomDatabase() {
     abstract fun packageAssignments(): PackageAssignmentDao
     abstract fun sourceStatus(): SourceStatusDao
     abstract fun physicalTests(): PhysicalTestDao
+    abstract fun unknownFinancialApps(): UnknownFinancialAppDao
 
     companion object {
         /** Las migraciones futuras se agregan aquí; nunca se usa destructive migration. */
@@ -71,7 +73,18 @@ abstract class PagoboxDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATIONS = arrayOf<androidx.room.migration.Migration>(MIGRATION_1_2)
+        /** v2 -> v3: registro permanente de apps con importes no asociadas a ninguna entidad (Canal A). */
+        val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `unknown_financial_apps` (`packageName` TEXT NOT NULL, `appLabel` TEXT, " +
+                        "`appVersion` TEXT, `installer` TEXT, `firstSeenAt` INTEGER NOT NULL, `lastSeenAt` INTEGER NOT NULL, " +
+                        "`monetaryCount` INTEGER NOT NULL, `dismissed` INTEGER NOT NULL, PRIMARY KEY(`packageName`))",
+                )
+            }
+        }
+
+        val MIGRATIONS = arrayOf<androidx.room.migration.Migration>(MIGRATION_1_2, MIGRATION_2_3)
 
         fun create(context: Context): PagoboxDatabase =
             Room.databaseBuilder(context, PagoboxDatabase::class.java, "pagobox.db")

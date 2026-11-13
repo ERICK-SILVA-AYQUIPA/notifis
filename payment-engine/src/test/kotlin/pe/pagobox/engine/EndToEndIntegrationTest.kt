@@ -48,7 +48,7 @@ class EndToEndIntegrationTest {
         queue.enqueue(event)
         val next = queue.next(now)!!
         assertEquals(
-            "¡Recibiste un pago de 1250 soles con 50 céntimos!",
+            "Se detectó un posible ingreso de 1250 soles con 50 céntimos",
             PhraseTemplateRenderer().phraseFor(next),
         )
         assertEquals(File(fixtures, "payment_event.json").readText(), DeviceMessages.paymentEvent(next))

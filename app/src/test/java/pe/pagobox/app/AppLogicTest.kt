@@ -36,7 +36,7 @@ class AppLogicTest {
 
     @Test
     fun `sin plantillas se usa la frase predeterminada`() {
-        assertEquals("¡Te yapearon 35 soles con 50 céntimos!", PhraseSelector.select(event(), emptyList(), true))
+        assertEquals("Se detectó un posible ingreso de 35 soles con 50 céntimos por Yape", PhraseSelector.select(event(), emptyList(), true))
     }
 
     @Test
@@ -58,7 +58,7 @@ class AppLogicTest {
     @Test
     fun `plantillas desactivadas o de otro tipo de verificacion no se usan`() {
         val templates = listOf(template("Desactivada", enabled = false), template("Solo verificados {monto_hablado}", verified = true))
-        assertEquals("¡Te yapearon 35 soles con 50 céntimos!", PhraseSelector.select(event(), templates, true))
+        assertEquals("Se detectó un posible ingreso de 35 soles con 50 céntimos por Yape", PhraseSelector.select(event(), templates, true))
         assertEquals("Solo verificados 35 soles con 50 céntimos", PhraseSelector.select(event(verified = true), templates, true))
     }
 

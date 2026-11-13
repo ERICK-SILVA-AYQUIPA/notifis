@@ -43,6 +43,8 @@ Android casi puro, y al menos un equipo con Android 10–11 y otro con Android 1
 | AND-11 | Notificación que no es un ingreso | Hacer un pago/yapeo SALIENTE real desde la misma cuenta. | No se anuncia. Queda «Rechazado» o «Formato desconocido» en diagnóstico. | ☐ Aprobada ☐ Fallida ☐ Bloqueada | |
 | AND-12 | Código de seguridad | Solicitar un código OTP real de la app bancaria con el modo diagnóstico activo. | La captura muestra «[OMITIDO: posible código de seguridad]» y no se guarda el código. | ☐ Aprobada ☐ Fallida ☐ Bloqueada | |
 | AND-13 | Borrado de registros | Borrar una muestra y luego «Borrar todo». | Las muestras desaparecen y la exportación queda vacía. | ☐ Aprobada ☐ Fallida ☐ Bloqueada | |
+| AND-14 | App financiera no asignada | Con el modo diagnóstico APAGADO, recibir un pago real en una app bancaria que no esté asignada a ninguna entidad. | Aparece en «Posibles apps financieras sin asignar» con paquete y contador; no se anuncia ni se guarda el texto. | ☐ Aprobada ☐ Fallida ☐ Bloqueada | |
+| AND-15 | Pantalla apagada y equipo desconectado | Apagar el equipo PAGOBOX, apagar la pantalla del celular 10 min y recibir un pago real de una entidad configurada. | El evento queda en el historial; se anuncia en el celular (si está habilitado) o queda pendiente y se entrega al reconectar el equipo. | ☐ Aprobada ☐ Fallida ☐ Bloqueada | |
 
 ## 2. Bluetooth
 

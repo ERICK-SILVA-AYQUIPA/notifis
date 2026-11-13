@@ -20,6 +20,7 @@ import pe.pagobox.app.data.repositories.DiagnosticsLogger
 import pe.pagobox.app.data.repositories.PaymentRepository
 import pe.pagobox.app.device.DeliveryResult
 import pe.pagobox.app.device.DeviceManager
+import pe.pagobox.app.system.ShortWakeLock
 import pe.pagobox.app.voice.AndroidVoiceEngine
 import pe.pagobox.app.voice.PhraseSelector
 import pe.pagobox.domain.model.AnnouncementStatus
@@ -42,6 +43,7 @@ class AnnouncementCoordinator(
     private val historyDao: AnnouncementHistoryDao,
     private val voice: AndroidVoiceEngine,
     private val devices: DeviceManager,
+    private val wakeLock: ShortWakeLock,
     private val log: DiagnosticsLogger,
     private val scope: CoroutineScope,
 ) {
@@ -86,7 +88,7 @@ class AnnouncementCoordinator(
                 continue
             }
             queue.muteUntil(current.mutedUntil)
-            val ok = announce(event, current.output, current.phoneFallback)
+            val ok = wakeLock.hold("announce", ANNOUNCE_WAKE_MS) { announce(event, current.output, current.phoneFallback) }
             if (ok) {
                 queue.markAnnounced(event.eventId)
             } else {
@@ -156,6 +158,8 @@ class AnnouncementCoordinator(
 
     companion object {
         private const val RETRY_DELAY_MS = 15_000L
+        /** Síntesis + entrega al equipo con ACK + voz en el celular; tope de seguridad. */
+        private const val ANNOUNCE_WAKE_MS = 120_000L
         private const val MAX_PENDING_AGE_MS = 30L * 60 * 1000
         val DEFAULT_VOICE = VoiceProfileEntity(voiceName = null, speechRate = 1.0f, pitch = 1.0f, volume = 100, announceSender = true)
     }

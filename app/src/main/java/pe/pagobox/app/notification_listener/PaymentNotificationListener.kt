@@ -12,10 +12,12 @@ import java.time.Instant
  * Capa de ingreso: convierte StatusBarNotification en RawNotification y la entrega al motor.
  * No contiene reglas bancarias (sección 17).
  *
- * Qué se lee:
- * - Paquetes asociados a una entidad (en cualquier estado): siempre.
- * - Cualquier otra app: solo mientras el modo diagnóstico está activo (tiempo limitado, lo
- *   activa el usuario), y lo que se guarda en disco está anonimizado.
+ * Qué se hace con cada notificación:
+ * - Paquetes asociados a una entidad (en cualquier estado): se procesan siempre.
+ * - Cualquier otra app: se revisa **en memoria** si el texto contiene un importe con moneda. Si lo
+ *   tiene, se registra solo la app (paquete, nombre, versión, instalador, contador), nunca el texto.
+ *   Con el modo diagnóstico activo (tiempo limitado, lo activa el usuario) además se guarda una
+ *   muestra anonimizada.
  */
 class PaymentNotificationListener : NotificationListenerService() {
     override fun onListenerConnected() {
@@ -34,7 +36,6 @@ class PaymentNotificationListener : NotificationListenerService() {
         val c = container
         if (sbn.packageName == packageName) return
         val diagnosticMode = c.diagnosticModeActive()
-        if (!diagnosticMode && !c.processor.isKnownPackage(sbn.packageName)) return
         // Las notificaciones de resumen de grupo no describen un pago individual.
         if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
 

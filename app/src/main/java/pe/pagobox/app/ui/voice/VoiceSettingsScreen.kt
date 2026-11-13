@@ -87,7 +87,7 @@ fun VoiceSettingsScreen(container: AppContainer) {
             }
             Button(
                 enabled = voiceState == AndroidVoiceEngine.State.READY,
-                onClick = { scope.launch { container.voice.speak("¡Te yapearon 20 soles! Esta es una prueba de voz.", profile) } },
+                onClick = { scope.launch { container.voice.speak("Se detectó un posible ingreso de 20 soles por Yape. Esta es una prueba de voz.", profile) } },
             ) { Text("Probar voz") }
         }
 

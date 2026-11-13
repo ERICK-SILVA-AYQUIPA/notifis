@@ -12,6 +12,9 @@ import pe.pagobox.app.data.local.PackageAssignmentDao
 import pe.pagobox.app.data.local.PackageAssignmentEntity
 import pe.pagobox.app.data.local.SourceStatusDao
 import pe.pagobox.app.data.local.SourceStatusEntity
+import pe.pagobox.app.data.local.UnknownFinancialAppDao
+import pe.pagobox.app.data.local.UnknownFinancialAppEntity
+import pe.pagobox.app.system.ShortWakeLock
 import pe.pagobox.app.data.preferences.SettingsRepository
 import pe.pagobox.app.data.repositories.DiagnosticsLogger
 import pe.pagobox.app.data.repositories.PaymentRepository
@@ -27,6 +30,7 @@ import pe.pagobox.engine.compatibility.CompatibilityRegistry
 import pe.pagobox.engine.compatibility.RuntimeOverride
 import pe.pagobox.engine.deduplication.DeduplicationEngine
 import pe.pagobox.engine.source.KnownSources
+import pe.pagobox.engine.source.MonetarySignal
 import pe.pagobox.engine.source.PaymentSourceAdapter
 import pe.pagobox.engine.source.SourcePackageRegistry
 
@@ -37,6 +41,8 @@ import pe.pagobox.engine.source.SourcePackageRegistry
  *   FORMAT_CHANGED / TEMPORARILY_UNAVAILABLE.
  * - Procesa en serie (sin carreras de secuencia) con una secuencia persistente y monotónica.
  * - Guarda muestras anonimizadas de formatos desconocidos y de entidades en espera de muestras.
+ * - Registra (sin texto) las apps no asociadas a ninguna entidad que publican importes, para que el
+ *   comerciante pueda identificarlas aunque el modo diagnóstico esté apagado.
  * - Tras [CompatibilityRegistry.UNKNOWN_FORMAT_THRESHOLD] formatos desconocidos seguidos, pasa la
  *   entidad a FORMAT_CHANGED: deja de anunciar hasta que se revise (nunca anuncia algo dudoso).
  */
@@ -44,6 +50,8 @@ class PaymentProcessor(
     private val repository: PaymentRepository,
     private val assignmentDao: PackageAssignmentDao,
     private val statusDao: SourceStatusDao,
+    private val unknownAppDao: UnknownFinancialAppDao,
+    private val wakeLock: ShortWakeLock,
     private val settings: SettingsRepository,
     private val diagnostics: NotificationDiagnostics,
     private val inspector: PackageInspector,
@@ -111,8 +119,14 @@ class PaymentProcessor(
     val supervisedCount: Int get() = _registry.value.supervisedPackages.size
 
     fun submit(capture: CapturedNotification, diagnosticMode: Boolean) {
+        // Solo las apps de una entidad justifican mantener la CPU despierta.
+        val known = isKnownPackage(capture.raw.packageName)
         scope.launch {
-            mutex.withLock { process(capture, diagnosticMode) }
+            if (known) {
+                wakeLock.hold("process", PROCESS_WAKE_MS) { mutex.withLock { process(capture, diagnosticMode) } }
+            } else {
+                mutex.withLock { process(capture, diagnosticMode) }
+            }
         }
     }
 
@@ -120,6 +134,16 @@ class PaymentProcessor(
         val raw = capture.raw
         _lastActivity.value = System.currentTimeMillis()
         val registry = _registry.value
+        if (registry.sourceFor(raw.packageName) == null) {
+            // App no asociada a ninguna entidad: nunca genera eventos ni anuncios.
+            recordUnknownIfMonetary(capture)
+            if (diagnosticMode) {
+                val summary = describe(PipelineResult.Ignored)
+                diagnostics.showLive(capture, null, summary)
+                diagnostics.store(capture, null, KIND_DIAGNOSTIC, summary)
+            }
+            return
+        }
         // Se consulta la secuencia sin consumirla; solo se fija si se crea un evento.
         val floor = maxOf(repository.maxStoredSequence(), lastAckedSequence())
         val candidate = settings.peekNextSequence(floor)
@@ -157,6 +181,33 @@ class PaymentProcessor(
             is PipelineResult.Rejected -> log.info("Motor", "${result.source.displayName}: no se anuncia (${result.reason})")
             PipelineResult.Ignored -> if (diagnosticMode) diagnostics.store(capture, null, KIND_DIAGNOSTIC, summary)
         }
+    }
+
+    /** Solo paquete, nombre, versión, instalador y contadores; el texto de la notificación no se guarda. */
+    private suspend fun recordUnknownIfMonetary(capture: CapturedNotification) {
+        if (!MonetarySignal.containsAmount(capture.raw)) return
+        val pkg = capture.raw.packageName
+        val now = System.currentTimeMillis()
+        val current = unknownAppDao.get(pkg)
+        val installer = current?.installer ?: inspector.inspect(pkg).installer
+        unknownAppDao.upsert(
+            UnknownFinancialAppEntity(
+                packageName = pkg,
+                appLabel = capture.appLabel ?: current?.appLabel,
+                appVersion = capture.appVersion ?: current?.appVersion,
+                installer = installer,
+                firstSeenAt = current?.firstSeenAt ?: now,
+                lastSeenAt = now,
+                monetaryCount = (current?.monetaryCount ?: 0) + 1,
+                dismissed = current?.dismissed ?: false,
+            ),
+        )
+        if (current == null) log.info("Lector", "App no asociada con importes: $pkg (${capture.appLabel ?: "?"}). Revísela en Diagnóstico de notificaciones.")
+    }
+
+    suspend fun dismissUnknownApp(packageName: String) {
+        unknownAppDao.setDismissed(packageName, true)
+        log.info("Motor", "App $packageName marcada como no financiera por el usuario")
     }
 
     private suspend fun registerUnknown(source: SourceId, reason: String) {
@@ -227,6 +278,7 @@ class PaymentProcessor(
                 assignedAt = System.currentTimeMillis(),
             ),
         )
+        unknownAppDao.delete(packageName)
         log.info("Motor", "Paquete $packageName asignado a ${source.displayName} (instalador: ${inspector.installerLabel(info.installer)})")
     }
 
@@ -248,5 +300,6 @@ class PaymentProcessor(
         const val KIND_DIAGNOSTIC = "DIAGNOSTIC"
         const val KIND_UNKNOWN = "UNKNOWN_FORMAT"
         const val KIND_WAITING = "WAITING_FOR_SAMPLE"
+        private const val PROCESS_WAKE_MS = 10_000L
     }
 }

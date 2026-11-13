@@ -23,14 +23,25 @@ class VoiceTest {
 
     @Test
     fun `frases predeterminadas por entidad`() {
-        assertEquals("¡Te yapearon 20 soles!", renderer.phraseFor(TestFixtures.event("a", 1, "20", SourceId.YAPE)))
-        assertEquals("¡Recibiste 35 soles por Plin!", renderer.phraseFor(TestFixtures.event("b", 2, "35", SourceId.PLIN)))
+        assertEquals("Se detectó un posible ingreso de 20 soles por Yape", renderer.phraseFor(TestFixtures.event("a", 1, "20", SourceId.YAPE)))
+        assertEquals("Se detectó un posible ingreso de 35 soles por Plin", renderer.phraseFor(TestFixtures.event("b", 2, "35", SourceId.PLIN)))
         assertEquals(
-            "¡Te hicieron una transferencia de 100 soles!",
+            "Se detectó un posible ingreso de 100 soles por BCP",
             renderer.phraseFor(TestFixtures.event("c", 3, "100", SourceId.BCP)),
         )
         val verified = TestFixtures.event("d", 4, "50").copy(verificationStatus = VerificationStatus.VERIFIED)
-        assertEquals("¡Pago verificado por 50 soles!", renderer.phraseFor(verified))
+        assertEquals("¡Pago confirmado de 50 soles!", renderer.phraseFor(verified))
+    }
+
+    @Test
+    fun `un evento detectado nunca usa la frase de pago confirmado`() {
+        val detected = TestFixtures.event("a", 1, "25", SourceId.YAPE)
+        val confirmed = detected.copy(verificationStatus = VerificationStatus.VERIFIED)
+        val a = renderer.phraseFor(detected)!!
+        val b = renderer.phraseFor(confirmed)!!
+        assertEquals(false, a.contains("confirmado", ignoreCase = true))
+        assertEquals(true, b.contains("confirmado", ignoreCase = true))
+        assertEquals(false, a == b)
     }
 
     @Test
@@ -47,7 +58,7 @@ class VoiceTest {
         val event = TestFixtures.event("a", 1, "20", SourceId.YAPE, sender = null)
         assertNull(renderer.render("{remitente} te yapeó {monto_hablado}", event))
         val phrase = renderer.phraseFor(event, mapOf(SourceId.YAPE to "{remitente} te yapeó {monto_hablado}"))
-        assertEquals("¡Te yapearon 20 soles!", phrase)
+        assertEquals("Se detectó un posible ingreso de 20 soles por Yape", phrase)
     }
 
     @Test
