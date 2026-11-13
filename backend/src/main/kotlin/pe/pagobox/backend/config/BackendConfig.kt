@@ -30,6 +30,8 @@ class ProviderCredentials(private val values: Map<String, String>) {
  * - `PAGOBOX_DATABASE_URL`: JDBC (por defecto `jdbc:sqlite:pagobox-backend.db`; en producción, PostgreSQL).
  * - `PAGOBOX_PORT` (8080), `PAGOBOX_REQUIRE_HTTPS` (true), `PAGOBOX_MAX_BODY_BYTES` (65536).
  * - `PAGOBOX_SIGNATURE_TOLERANCE_SECONDS`: antigüedad máxima de la marca de tiempo firmada (vacío = no se exige).
+ * - `PAGOBOX_DEVICE_TOKENS_SANDBOX` / `_PRODUCTION`: SHA-256 (hex) de los tokens de los celulares autorizados,
+ *   separados por coma. El servidor nunca guarda el token en claro.
  * - Credenciales: `PAGOBOX_<PROVEEDOR>_<ENTORNO>_<CLAVE>`, p. ej.
  *   `PAGOBOX_MERCADO_PAGO_SANDBOX_WEBHOOK_SECRET`, `PAGOBOX_MERCADO_PAGO_SANDBOX_ACCESS_TOKEN`.
  */
@@ -41,6 +43,8 @@ data class BackendConfig(
     val requireHttps: Boolean = true,
     val maxBodyBytes: Int = 64 * 1024,
     val signatureToleranceSeconds: Long? = null,
+    /** SHA-256 (hex) de los tokens de cada celular PAGOBOX autorizado a leer eventos, por entorno. */
+    val deviceTokenHashes: Map<DeployEnvironment, Set<String>> = emptyMap(),
 ) {
     fun credentialsFor(provider: ProviderId, env: DeployEnvironment): ProviderCredentials =
         credentials[provider to env] ?: ProviderCredentials(emptyMap())
@@ -63,6 +67,9 @@ data class BackendConfig(
                 requireHttps = env["PAGOBOX_REQUIRE_HTTPS"]?.lowercase() != "false",
                 maxBodyBytes = env["PAGOBOX_MAX_BODY_BYTES"]?.toIntOrNull() ?: 64 * 1024,
                 signatureToleranceSeconds = env["PAGOBOX_SIGNATURE_TOLERANCE_SECONDS"]?.toLongOrNull(),
+                deviceTokenHashes = DeployEnvironment.entries.associateWith { de ->
+                    env["PAGOBOX_DEVICE_TOKENS_${de.name}"].orEmpty().split(',').map { it.trim().lowercase() }.filter { it.length == 64 }.toSet()
+                },
             )
         }
     }

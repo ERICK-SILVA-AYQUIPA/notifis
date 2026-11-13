@@ -44,6 +44,10 @@ data class PaymentEventEntity(
     /** Huella de la notificación (Canal A) o referencia al registro original del backend (Canal B). */
     val rawEventReference: String,
     val duplicateOf: String?,
+    /** Posible mismo pago en el otro canal, sin evidencia suficiente para fusionar. */
+    val possibleMatchOf: String?,
+    /** Evento de sandbox (prueba): nunca es un pago real. */
+    val testMode: Boolean,
     val deviceId: String?,
     val stateReason: String,
     val createdAt: Long,

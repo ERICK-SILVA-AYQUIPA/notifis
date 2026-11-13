@@ -33,6 +33,32 @@ interface PaymentEventDao {
     @Query("SELECT COALESCE(MAX(sequence), 0) FROM payment_events")
     suspend fun maxSequence(): Long
 
+    @Query("SELECT * FROM payment_events WHERE provider = :provider AND externalTransactionId = :externalId")
+    suspend fun byProviderExternalId(provider: String, externalId: String): PaymentEventEntity?
+
+    @Query(
+        "SELECT * FROM payment_events WHERE sourceChannel = 'ANDROID_NOTIFICATION' " +
+            "AND verificationStatus = 'INCOME_CANDIDATE' AND eventTimestamp >= :from",
+    )
+    suspend fun androidCandidatesSince(from: Long): List<PaymentEventEntity>
+
+    /** Un posible ingreso Android que resultó ser el mismo pago que uno oficial: no se vuelve a anunciar. */
+    @Query(
+        "UPDATE payment_events SET verificationStatus = 'DUPLICATE', duplicateOf = :duplicateOf, " +
+            "announcementStatus = CASE WHEN announcementStatus IN ('PENDING','DELIVERED') THEN 'SKIPPED' ELSE announcementStatus END, " +
+            "stateReason = :reason, updatedAt = :now WHERE eventId = :eventId AND verificationStatus = 'INCOME_CANDIDATE'",
+    )
+    suspend fun markDuplicate(eventId: String, duplicateOf: String, reason: String, now: Long): Int
+
+    @Query("UPDATE payment_events SET possibleMatchOf = :other, updatedAt = :now WHERE eventId = :eventId")
+    suspend fun setPossibleMatch(eventId: String, other: String, now: Long)
+
+    @Query(
+        "UPDATE payment_events SET verificationStatus = :status, amountCents = :amountCents, currency = :currency, " +
+            "announcementStatus = :announcement, stateReason = :reason, updatedAt = :now WHERE eventId = :eventId",
+    )
+    suspend fun updateOfficial(eventId: String, status: String, amountCents: Long?, currency: String?, announcement: String, reason: String, now: Long)
+
     /** Solo cambia el anuncio; la verificación es otra dimensión y no se toca aquí. */
     @Query("UPDATE payment_events SET announcementStatus = :status, updatedAt = :now WHERE eventId = :eventId")
     suspend fun updateAnnouncement(eventId: String, status: String, now: Long)

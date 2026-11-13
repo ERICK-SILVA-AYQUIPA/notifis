@@ -248,8 +248,12 @@ class JdbcIntegrationStore(url: String) : IntegrationStore {
             verificationStatus = VerificationStatus.valueOf(getString("verification_status")),
             announcementStatus = AnnouncementStatus.PENDING,
             rawEventReference = getString("raw_event_id"),
+            testMode = getString("environment") != DeployEnvironment.PRODUCTION.name,
         )
-        return StoredPaymentEvent(DeployEnvironment.valueOf(getString("environment")), event, getString("provider_status"))
+        return StoredPaymentEvent(
+            DeployEnvironment.valueOf(getString("environment")), event, getString("provider_status"),
+            Instant.ofEpochMilli(getLong("updated_at")),
+        )
     }
 
     private fun ResultSet.getNullableLong(column: String): Long? = getLong(column).let { if (wasNull()) null else it }

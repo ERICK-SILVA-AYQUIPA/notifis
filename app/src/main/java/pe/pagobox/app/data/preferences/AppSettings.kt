@@ -26,6 +26,10 @@ data class AppSettings(
     val retentionDays: Int = 90,
     /** Fin del modo de diagnóstico de notificaciones (captura de todas las apps), o null si está apagado. */
     val diagnosticUntil: Instant? = null,
+    /** URL HTTPS del backend de integraciones oficiales (Canal B); vacío = no configurado. */
+    val backendUrl: String = "",
+    /** Token de este celular para leer eventos oficiales (lo entrega quien administra el backend). */
+    val backendToken: String = "",
 )
 
 /** Configuración general persistida en la tabla AppSettings (clave-valor). */
@@ -43,6 +47,8 @@ class SettingsRepository(private val dao: AppSettingDao) {
             mutedUntil = m[MUTED_UNTIL]?.toLongOrNull()?.takeIf { it > 0 }?.let(Instant::ofEpochMilli),
             retentionDays = m[RETENTION_DAYS]?.toIntOrNull() ?: 90,
             diagnosticUntil = m[DIAGNOSTIC_UNTIL]?.toLongOrNull()?.takeIf { it > 0 }?.let(Instant::ofEpochMilli),
+            backendUrl = m[BACKEND_URL].orEmpty(),
+            backendToken = m[BACKEND_TOKEN].orEmpty(),
         )
     }
 
@@ -58,6 +64,18 @@ class SettingsRepository(private val dao: AppSettingDao) {
     suspend fun setRetentionDays(days: Int) = put(RETENTION_DAYS, days.coerceIn(7, 365).toString())
 
     suspend fun setDiagnosticUntil(until: Instant?) = put(DIAGNOSTIC_UNTIL, (until?.toEpochMilli() ?: 0L).toString())
+
+    /** Solo se acepta HTTPS: el token nunca viaja en claro. */
+    suspend fun setBackend(url: String, token: String) {
+        val clean = url.trim().trimEnd('/')
+        require(clean.isEmpty() || clean.startsWith("https://")) { "La URL del backend debe empezar con https://" }
+        put(BACKEND_URL, clean)
+        put(BACKEND_TOKEN, token.trim())
+        put(OFFICIAL_CURSOR, "0")
+    }
+
+    suspend fun officialCursor(): Long = dao.get(OFFICIAL_CURSOR)?.toLongOrNull() ?: 0L
+    suspend fun setOfficialCursor(cursor: Long) = put(OFFICIAL_CURSOR, cursor.toString())
 
     /**
      * Secuencia de eventos monotónica y persistente: nunca vuelve a empezar aunque se borre el
@@ -89,5 +107,8 @@ class SettingsRepository(private val dao: AppSettingDao) {
         const val RETENTION_DAYS = "retention_days"
         const val DIAGNOSTIC_UNTIL = "diagnostic_until"
         const val SEQUENCE = "event_sequence"
+        const val BACKEND_URL = "backend_url"
+        const val BACKEND_TOKEN = "backend_token"
+        const val OFFICIAL_CURSOR = "official_cursor"
     }
 }

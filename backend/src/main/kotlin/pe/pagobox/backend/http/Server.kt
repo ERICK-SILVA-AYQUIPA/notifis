@@ -23,9 +23,36 @@ import java.time.Clock
  * `/webhooks/sandbox/mercado-pago`. La terminación TLS la hace el proxy inverso; si
  * [BackendConfig.requireHttps] está activo, se rechaza lo que no llegó por HTTPS.
  */
-fun Application.pagoboxBackend(config: BackendConfig, ingestion: WebhookIngestion, clock: Clock = Clock.systemUTC()) {
+fun Application.pagoboxBackend(
+    config: BackendConfig,
+    ingestion: WebhookIngestion,
+    deviceApi: DeviceApi? = null,
+    clock: Clock = Clock.systemUTC(),
+) {
     routing {
         get("/health") { call.respondText("ok") }
+
+        // Canal B → celular: eventos oficiales del entorno al que pertenece el token.
+        get("/api/v1/events") {
+            val api = deviceApi
+            if (api == null) {
+                call.respondText("not found", status = HttpStatusCode.NotFound)
+                return@get
+            }
+            val https = call.request.headers["X-Forwarded-Proto"]?.lowercase() == "https" || call.request.origin.scheme == "https"
+            if (config.requireHttps && !https) {
+                call.respondText("https required", status = HttpStatusCode.Forbidden)
+                return@get
+            }
+            val env = api.environmentFor(call.request.headers["Authorization"])
+            if (env == null) {
+                call.respondText("unauthorized", status = HttpStatusCode.Unauthorized)
+                return@get
+            }
+            val after = java.time.Instant.ofEpochMilli(call.request.queryParameters["after"]?.toLongOrNull() ?: 0L)
+            val limit = call.request.queryParameters["limit"]?.toIntOrNull() ?: 100
+            call.respondText(api.eventsJson(env, after, limit), ContentType.Application.Json)
+        }
 
         post("/webhooks/{environment}/{provider}") {
             val forwardedProto = call.request.headers["X-Forwarded-Proto"]?.lowercase()

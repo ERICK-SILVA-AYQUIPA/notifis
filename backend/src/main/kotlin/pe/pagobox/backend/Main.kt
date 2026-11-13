@@ -3,6 +3,7 @@ package pe.pagobox.backend
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import pe.pagobox.backend.config.BackendConfig
+import pe.pagobox.backend.http.DeviceApi
 import pe.pagobox.backend.http.pagoboxBackend
 import pe.pagobox.backend.ingest.WebhookIngestion
 import pe.pagobox.backend.providers.Providers
@@ -17,5 +18,5 @@ fun main() {
         val ready = config.credentialsFor(p.id, env).has(p.requiredCredentials)
         println("PAGOBOX backend · ${env.path} · ${p.id.displayName}: ${if (ready) "credenciales presentes" else "sin configurar"}")
     }
-    embeddedServer(Netty, port = config.port) { pagoboxBackend(config, ingestion) }.start(wait = true)
+    embeddedServer(Netty, port = config.port) { pagoboxBackend(config, ingestion, DeviceApi(config, store)) }.start(wait = true)
 }

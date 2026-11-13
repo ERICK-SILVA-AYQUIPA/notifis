@@ -11,7 +11,9 @@ import pe.pagobox.app.data.local.PagoboxDatabase
 import pe.pagobox.app.data.local.PaymentEventEntity
 import pe.pagobox.app.data.local.SeenFingerprintEntity
 import pe.pagobox.domain.model.AnnouncementStatus
+import pe.pagobox.domain.model.Money
 import pe.pagobox.domain.model.PaymentEvent
+import pe.pagobox.domain.model.VerificationStatus
 import pe.pagobox.engine.deduplication.SeenFingerprintStore
 import java.time.Instant
 import java.time.LocalDate
@@ -73,6 +75,22 @@ class PaymentRepository(private val db: PagoboxDatabase) {
             )
         }
     }
+
+    suspend fun byProviderExternalId(provider: String, externalId: String): PaymentEvent? =
+        dao.byProviderExternalId(provider, externalId)?.toDomain()
+
+    suspend fun androidCandidatesSince(from: Long): List<PaymentEvent> = dao.androidCandidatesSince(from).map { it.toDomain() }
+
+    suspend fun markDuplicate(eventId: String, duplicateOf: String, reason: String) =
+        dao.markDuplicate(eventId, duplicateOf, reason, System.currentTimeMillis())
+
+    suspend fun setPossibleMatch(eventId: String, other: String) = dao.setPossibleMatch(eventId, other, System.currentTimeMillis())
+
+    suspend fun updateOfficial(eventId: String, status: VerificationStatus, money: Money?, announcement: AnnouncementStatus, reason: String) =
+        dao.updateOfficial(
+            eventId, status.name, money?.normalized?.movePointRight(2)?.longValueExact(), money?.currency?.code,
+            announcement.name, reason, System.currentTimeMillis(),
+        )
 
     suspend fun pendingAnnouncements(): List<PaymentEvent> = dao.pendingAnnouncements().map { it.toDomain() }
 

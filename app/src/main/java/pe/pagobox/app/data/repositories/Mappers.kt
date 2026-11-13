@@ -32,6 +32,8 @@ fun PaymentEvent.toEntity(reason: String, now: Long): PaymentEventEntity = Payme
     announcementStatus = announcementStatus.name,
     rawEventReference = rawEventReference,
     duplicateOf = duplicateOf,
+    possibleMatchOf = possibleMatchOf,
+    testMode = testMode,
     deviceId = deviceId,
     stateReason = reason,
     createdAt = now,
@@ -60,5 +62,7 @@ fun PaymentEventEntity.toDomain(): PaymentEvent = PaymentEvent(
     announcementStatus = AnnouncementStatus.valueOf(announcementStatus),
     rawEventReference = rawEventReference,
     duplicateOf = duplicateOf,
+    possibleMatchOf = possibleMatchOf,
+    testMode = testMode,
     deviceId = deviceId,
 )

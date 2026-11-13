@@ -22,12 +22,21 @@ import pe.pagobox.app.diagnostics.CapturedNotification
 import pe.pagobox.app.diagnostics.NotificationDiagnostics
 import pe.pagobox.app.diagnostics.PackageInspector
 import pe.pagobox.domain.model.CompatibilityStatus
+import pe.pagobox.domain.model.AnnouncementStatus
+import pe.pagobox.domain.model.Currency
+import pe.pagobox.domain.model.EventType
+import pe.pagobox.domain.model.Money
+import pe.pagobox.domain.model.PaymentEvent
+import pe.pagobox.domain.model.ProviderId
+import pe.pagobox.domain.model.SourceChannel
 import pe.pagobox.domain.model.SourceId
 import pe.pagobox.domain.model.VerificationStatus
 import pe.pagobox.engine.PaymentPipeline
 import pe.pagobox.engine.PipelineResult
 import pe.pagobox.engine.compatibility.CompatibilityRegistry
 import pe.pagobox.engine.compatibility.RuntimeOverride
+import pe.pagobox.engine.correlation.Correlation
+import pe.pagobox.engine.correlation.CrossChannelCorrelator
 import pe.pagobox.engine.deduplication.DeduplicationEngine
 import pe.pagobox.engine.source.KnownSources
 import pe.pagobox.engine.source.MonetarySignal
@@ -183,6 +192,84 @@ class PaymentProcessor(
         }
     }
 
+    private val correlator = CrossChannelCorrelator()
+
+    /**
+     * Eventos oficiales (Canal B) traídos del backend. Se guardan con la secuencia local, se actualizan
+     * si el proveedor cambia el estado, y cada pago confirmado se compara con los posibles ingresos
+     * Android recientes: solo con evidencia suficiente el de Android pasa a DUPLICATE.
+     */
+    suspend fun ingestOfficial(events: List<OfficialEventDto>, testMode: Boolean) = mutex.withLock {
+        var announce = false
+        for (dto in events) {
+            val provider = runCatching { ProviderId.valueOf(dto.provider) }.getOrNull() ?: continue
+            val status = runCatching { VerificationStatus.valueOf(dto.verificationStatus) }.getOrNull() ?: continue
+            val money = dto.amount?.let { a ->
+                runCatching { Money(java.math.BigDecimal(a).setScale(2), Currency.valueOf(dto.currency!!)) }.getOrNull()
+            }
+            val now = System.currentTimeMillis()
+            val reason = "${provider.displayName}: ${dto.providerStatus}" + if (testMode) " (sandbox)" else ""
+            val existing = repository.byProviderExternalId(provider.name, dto.externalTransactionId)
+            val event: PaymentEvent
+            if (existing != null) {
+                if (existing.verificationStatus == status.name) continue
+                val becameConfirmed = status == VerificationStatus.PROVIDER_CONFIRMED
+                repository.updateOfficial(
+                    existing.eventId, status, money,
+                    announcement = if (becameConfirmed) AnnouncementStatus.PENDING else AnnouncementStatus.SKIPPED,
+                    reason = reason,
+                )
+                event = existing.copy(verificationStatus = status, money = money ?: existing.money)
+            } else {
+                val floor = maxOf(repository.maxStoredSequence(), lastAckedSequence())
+                val sequence = settings.peekNextSequence(floor)
+                event = PaymentEvent(
+                    eventId = dto.eventId,
+                    sequence = sequence,
+                    sourceChannel = SourceChannel.OFFICIAL_WEBHOOK,
+                    provider = provider,
+                    source = runCatching { SourceId.valueOf(dto.source) }.getOrDefault(SourceId.OTHER),
+                    externalTransactionId = dto.externalTransactionId,
+                    eventType = runCatching { EventType.valueOf(dto.eventType) }.getOrDefault(EventType.INCOMING_TRANSFER),
+                    money = money,
+                    senderName = dto.sender,
+                    recipient = dto.recipient,
+                    eventTimestamp = java.time.Instant.ofEpochMilli(dto.eventTimestamp),
+                    detectedTimestamp = java.time.Instant.ofEpochMilli(now),
+                    verificationStatus = status,
+                    announcementStatus = if (status == VerificationStatus.PROVIDER_CONFIRMED) AnnouncementStatus.PENDING else AnnouncementStatus.SKIPPED,
+                    rawEventReference = dto.eventId,
+                    testMode = testMode,
+                )
+                repository.save(event, reason)
+                settings.commitSequence(sequence)
+            }
+            if (event.verificationStatus == VerificationStatus.PROVIDER_CONFIRMED) {
+                announce = true
+                correlate(event)
+            }
+            log.info("Canal B", "${event.eventId} ${provider.displayName} ${dto.externalTransactionId}: ${status.label}" + if (testMode) " (sandbox)" else "")
+        }
+        if (announce) onIncome()
+    }
+
+    private suspend fun correlate(official: PaymentEvent) {
+        val since = official.eventTimestamp.toEpochMilli() - CORRELATION_LOOKBACK_MS
+        val candidates = repository.androidCandidatesSince(since)
+        when (val r = correlator.correlate(official, candidates)) {
+            is Correlation.SamePayment -> {
+                repository.markDuplicate(r.androidEventId, official.eventId, "Mismo pago que ${official.eventId}: ${r.evidence.joinToString()}")
+                log.info("Canal B", "${r.androidEventId} es el mismo pago que ${official.eventId} (${r.evidence.joinToString()})")
+            }
+            is Correlation.PossibleMatch -> {
+                r.androidEventIds.forEach { repository.setPossibleMatch(it, official.eventId) }
+                repository.setPossibleMatch(official.eventId, r.androidEventIds.first())
+                log.info("Canal B", "${official.eventId}: posible mismo pago que ${r.androidEventIds.joinToString()} — no se fusiona (${r.reason})")
+            }
+            Correlation.NoMatch -> Unit
+        }
+    }
+
     /** Solo paquete, nombre, versión, instalador y contadores; el texto de la notificación no se guarda. */
     private suspend fun recordUnknownIfMonetary(capture: CapturedNotification) {
         if (!MonetarySignal.containsAmount(capture.raw)) return
@@ -301,5 +388,6 @@ class PaymentProcessor(
         const val KIND_UNKNOWN = "UNKNOWN_FORMAT"
         const val KIND_WAITING = "WAITING_FOR_SAMPLE"
         private const val PROCESS_WAKE_MS = 10_000L
+        private const val CORRELATION_LOOKBACK_MS = 10L * 60 * 1000
     }
 }

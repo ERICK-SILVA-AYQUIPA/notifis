@@ -15,7 +15,9 @@ object PhraseSelector {
         val verified = event.isProviderConfirmed
         val candidates = templates.filter { it.enabled && it.forVerified == verified }
         val ordered = candidates.filter { it.sourceId == event.source.name } + candidates.filter { it.sourceId == null }
-        for (t in ordered) renderer.render(t.template, event)?.let { return it }
-        return renderer.render(DefaultPhrases.forEvent(event), event)
+        val phrase = ordered.firstNotNullOfOrNull { renderer.render(it.template, event) }
+            ?: renderer.render(DefaultPhrases.forEvent(event), event)
+        // Un evento de sandbox nunca debe sonar como un pago real.
+        return phrase?.let { if (event.testMode) "Prueba. $it" else it }
     }
 }

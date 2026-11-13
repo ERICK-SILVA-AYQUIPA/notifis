@@ -98,7 +98,8 @@ abstract class PagoboxDatabase : RoomDatabase() {
                         "`sourceApplication` TEXT, `sourceId` TEXT NOT NULL, `externalTransactionId` TEXT, `eventType` TEXT NOT NULL, " +
                         "`amountCents` INTEGER, `currency` TEXT, `senderName` TEXT, `recipient` TEXT, `eventTimestamp` INTEGER NOT NULL, " +
                         "`detectedTimestamp` INTEGER NOT NULL, `verificationStatus` TEXT NOT NULL, `announcementStatus` TEXT NOT NULL, " +
-                        "`rawEventReference` TEXT NOT NULL, `duplicateOf` TEXT, `deviceId` TEXT, `stateReason` TEXT NOT NULL, " +
+                        "`rawEventReference` TEXT NOT NULL, `duplicateOf` TEXT, `possibleMatchOf` TEXT, `testMode` INTEGER NOT NULL, " +
+                        "`deviceId` TEXT, `stateReason` TEXT NOT NULL, " +
                         "`createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL)",
                 )
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_payment_events_eventId` ON `payment_events` (`eventId`)")
@@ -112,7 +113,7 @@ abstract class PagoboxDatabase : RoomDatabase() {
                     "INSERT INTO `payment_events` (`id`, `eventId`, `sequence`, `sourceChannel`, `provider`, `sourceApplication`, " +
                         "`sourceId`, `externalTransactionId`, `eventType`, `amountCents`, `currency`, `senderName`, `recipient`, " +
                         "`eventTimestamp`, `detectedTimestamp`, `verificationStatus`, `announcementStatus`, `rawEventReference`, " +
-                        "`duplicateOf`, `deviceId`, `stateReason`, `createdAt`, `updatedAt`) " +
+                        "`duplicateOf`, `possibleMatchOf`, `testMode`, `deviceId`, `stateReason`, `createdAt`, `updatedAt`) " +
                         "SELECT `id`, `eventId`, `sequence`, 'ANDROID_NOTIFICATION', NULL, NULL, `sourceId`, NULL, `eventType`, " +
                         "`amountCents`, `currency`, `senderName`, NULL, `eventTimestamp`, `detectedTimestamp`, " +
                         "CASE `state` " +
@@ -120,7 +121,7 @@ abstract class PagoboxDatabase : RoomDatabase() {
                         "WHEN 'PENDING_REVIEW' THEN 'PENDING_VERIFICATION' WHEN 'VERIFIED' THEN 'PENDING_VERIFICATION' " +
                         "WHEN 'REJECTED' THEN 'REJECTED' WHEN 'DUPLICATE' THEN 'REJECTED' " +
                         "ELSE 'INCOME_CANDIDATE' END, " +
-                        "`announcementStatus`, `rawNotificationHash`, NULL, `deviceId`, `stateReason`, `createdAt`, `updatedAt` " +
+                        "`announcementStatus`, `rawNotificationHash`, NULL, NULL, 0, `deviceId`, `stateReason`, `createdAt`, `updatedAt` " +
                         "FROM `payment_events_v2`",
                 )
                 db.execSQL("DROP TABLE `payment_events_v2`")

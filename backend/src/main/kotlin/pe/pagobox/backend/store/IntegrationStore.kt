@@ -41,7 +41,12 @@ data class RawWebhookEvent(
     val attempts: Int = 1,
 )
 
-data class StoredPaymentEvent(val environment: DeployEnvironment, val event: PaymentEvent, val providerStatus: String)
+data class StoredPaymentEvent(
+    val environment: DeployEnvironment,
+    val event: PaymentEvent,
+    val providerStatus: String,
+    val updatedAt: Instant = Instant.EPOCH,
+)
 
 data class AuditEntry(
     val at: Instant,

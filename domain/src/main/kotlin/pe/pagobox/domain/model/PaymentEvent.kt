@@ -39,6 +39,13 @@ data class PaymentEvent(
     val rawEventReference: String,
     /** Si es DUPLICATE: evento que representa el mismo pago. */
     val duplicateOf: String? = null,
+    /**
+     * Posible mismo pago en el otro canal, **sin evidencia suficiente para fusionar**: ambos eventos
+     * se conservan y la interfaz los muestra relacionados.
+     */
+    val possibleMatchOf: String? = null,
+    /** Evento de sandbox / prueba: nunca es un pago real. */
+    val testMode: Boolean = false,
     val deviceId: String? = null,
 ) {
     init {

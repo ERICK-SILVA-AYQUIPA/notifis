@@ -69,6 +69,9 @@ class AppContainer(context: Context) {
         onIncome = { announcements.notifyNewIncome() },
     )
 
+    /** Canal B: eventos oficiales desde el backend propio (si está configurado). */
+    val officialSync = pe.pagobox.app.payment.OfficialEventsSync(settings, processor, log, scope)
+
     /** Estado del servicio lector, informado por el propio servicio. */
     val listenerConnected = kotlinx.coroutines.flow.MutableStateFlow(false)
 
@@ -84,6 +87,7 @@ class AppContainer(context: Context) {
             settings.settings.collect { diagnosticUntil = it.diagnosticUntil?.toEpochMilli() ?: 0L }
         }
         processor.start()
+        officialSync.start()
         devices.start()
         announcements.start()
     }

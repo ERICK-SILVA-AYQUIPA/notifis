@@ -49,6 +49,8 @@ fun EventDetailScreen(container: AppContainer, eventId: String) {
             e.externalTransactionId?.let { LabeledValue("ID del proveedor", it) }
             e.recipient?.let { LabeledValue("Destinatario", it) }
             e.duplicateOf?.let { LabeledValue("Mismo pago que", it) }
+            e.possibleMatchOf?.let { LabeledValue("Posible mismo pago que", "$it (sin evidencia suficiente para unirlos)") }
+            if (e.testMode) LabeledValue("Entorno", "Prueba (sandbox): no es un pago real")
             LabeledValue("Remitente", e.senderName ?: "No disponible")
             LabeledValue("Fecha del pago", formatDateTime(e.eventTimestamp))
             LabeledValue("Detectado", formatDateTime(e.detectedTimestamp))
