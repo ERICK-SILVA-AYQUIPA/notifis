@@ -6,7 +6,11 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import pe.pagobox.backend.config.BackendConfig
 import pe.pagobox.backend.config.DeployEnvironment
+import pe.pagobox.backend.providers.ProviderAdapter
+import pe.pagobox.backend.providers.Providers
 import pe.pagobox.backend.security.Crypto
+import pe.pagobox.backend.store.ProviderHealth
+import pe.pagobox.domain.model.ProviderId
 import pe.pagobox.backend.store.IntegrationStore
 import pe.pagobox.backend.store.StoredPaymentEvent
 import java.time.Instant
@@ -15,7 +19,11 @@ import java.time.Instant
  * Lectura de eventos oficiales por el celular PAGOBOX (Canal B → app). Solo lectura: el celular
  * no puede crear ni confirmar pagos. Cada token pertenece a un único entorno.
  */
-class DeviceApi(private val config: BackendConfig, private val store: IntegrationStore) {
+class DeviceApi(
+    private val config: BackendConfig,
+    private val store: IntegrationStore,
+    private val adapters: List<ProviderAdapter> = Providers.all(),
+) {
     fun environmentFor(authorization: String?): DeployEnvironment? {
         val token = authorization?.removePrefix("Bearer ")?.trim()?.takeIf { it.length >= 32 } ?: return null
         val hash = Crypto.sha256Hex(token.toByteArray())
@@ -35,6 +43,39 @@ class DeviceApi(private val config: BackendConfig, private val store: Integratio
             ),
         ).toString()
     }
+
+    /**
+     * Estado de cada proveedor en el entorno del token, para el panel de integraciones. Nunca devuelve
+     * credenciales: solo si están configuradas. «ACTIVE» exige que el backend haya procesado al menos un
+     * webhook comprobado (firma o consulta a la API del proveedor) y que no haya un error posterior.
+     */
+    fun integrationsJson(environment: DeployEnvironment): String {
+        val providers = ProviderId.entries.map { id ->
+            val adapter = adapters.firstOrNull { it.id == id }
+            val configured = adapter != null && config.credentialsFor(id, environment).has(adapter.requiredCredentials)
+            val health = store.providerHealth(id, environment)
+            JsonObject(
+                mapOf(
+                    "provider" to JsonPrimitive(id.name),
+                    "implemented" to JsonPrimitive(adapter != null),
+                    "credentialsConfigured" to JsonPrimitive(configured),
+                    "webhookPath" to (adapter?.let { JsonPrimitive("/webhooks/${environment.path}/${id.pathSegment()}") } ?: JsonNull),
+                    "lastCommunicationAt" to millis(health.lastCommunicationAt),
+                    "lastEventAt" to millis(health.lastEventAt),
+                    "lastError" to (health.lastError?.let { JsonPrimitive(it) } ?: JsonNull),
+                    "lastErrorAt" to millis(health.lastErrorAt),
+                    "status" to JsonPrimitive(integrationStatus(adapter != null, configured, health).name),
+                ),
+            )
+        }
+        return JsonObject(
+            mapOf("environment" to JsonPrimitive(environment.path), "providers" to JsonArray(providers)),
+        ).toString()
+    }
+
+    private fun millis(i: Instant?) = i?.let { JsonPrimitive(it.toEpochMilli()) } ?: JsonNull
+
+    private fun ProviderId.pathSegment() = name.lowercase().replace('_', '-')
 
     private fun StoredPaymentEvent.toJson(): JsonObject {
         val e = event
@@ -56,5 +97,20 @@ class DeviceApi(private val config: BackendConfig, private val store: Integratio
                 "updatedAt" to JsonPrimitive(updatedAt.toEpochMilli()),
             ),
         )
+    }
+}
+
+/** Estado mostrado en el panel. Nunca «ACTIVE» sin un webhook real procesado y comprobado. */
+enum class IntegrationStatus { NOT_IMPLEMENTED, NOT_CONFIGURED, AWAITING_FIRST_EVENT, ACTIVE, ERROR }
+
+fun integrationStatus(implemented: Boolean, configured: Boolean, health: ProviderHealth): IntegrationStatus {
+    if (!implemented) return IntegrationStatus.NOT_IMPLEMENTED
+    if (!configured) return IntegrationStatus.NOT_CONFIGURED
+    val lastEvent = health.lastEventAt
+    val lastError = health.lastErrorAt
+    return when {
+        lastError != null && (lastEvent == null || lastError.isAfter(lastEvent)) -> IntegrationStatus.ERROR
+        lastEvent != null -> IntegrationStatus.ACTIVE
+        else -> IntegrationStatus.AWAITING_FIRST_EVENT
     }
 }

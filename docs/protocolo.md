@@ -37,13 +37,22 @@ varios fragmentos y el receptor lo reensambla hasta el `\n`.
   "currency": "PEN",
   "sender": "Juan",
   "timestamp": "2026-11-12T15:30:00-05:00",
-  "verificationStatus": "DETECTED",
-  "announcementStatus": "PENDING"
+  "verificationStatus": "INCOME_CANDIDATE",
+  "announcementStatus": "PENDING",
+  "channel": "ANDROID_NOTIFICATION",
+  "provider": null,
+  "test": false
 }
 ```
 
 - `amount`, `currency` y `sender` pueden ser `null`: nunca se inventan.
-- `verificationStatus` es `DETECTED` salvo confirmación oficial (`VERIFIED`).
+- `verificationStatus` (protocolo v2) es el estado real del evento (`INCOME_CANDIDATE`, `PENDING_VERIFICATION`,
+  `PROVIDER_CONFIRMED`…). El equipo muestra «Confirmado por proveedor» **solo** con `PROVIDER_CONFIRMED` (o
+  `VERIFIED`, del protocolo v1); cualquier otro valor se muestra como «Posible ingreso (no verificado)».
+- `channel`: `ANDROID_NOTIFICATION` u `OFFICIAL_WEBHOOK`. `provider`: `MERCADO_PAGO`, `IZIPAY` o `null`.
+- `test`: booleano JSON. `true` en eventos de sandbox: el equipo antepone «PRUEBA - » y el celular dice «Prueba.».
+- El equipo nunca decide la confianza: solo muestra lo que el celular calculó a partir del backend.
+- Los duplicados entre canales no se envían de nuevo (el anuncio ya ocurrió con el evento original).
 - Generado por `DeviceMessages.paymentEvent` (Kotlin) e interpretado por `pb_parse_message` (firmware).
 
 ### Comandos

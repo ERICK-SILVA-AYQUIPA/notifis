@@ -225,8 +225,7 @@ void pb_display_set_payment(const pb_payment_event_t *evt)
     lv_label_set_text(s_source, source);
     lv_label_set_text(s_amount, amount);
     lv_label_set_text(s_sender, sender[0] != '\0' ? sender : "");
-    lv_label_set_text_fmt(s_meta, "%s  -  %s", time_hhmm,
-                          evt->verification == PB_VERIFICATION_VERIFIED ? "Verificado" : "Detectado (no verificado)");
+    lv_label_set_text_fmt(s_meta, "%s  -  %s", time_hhmm, pb_verification_label(evt));
     lv_label_set_text_fmt(s_last, "Ultimo: %s %s", amount, time_hhmm);
     lvgl_port_unlock();
 }

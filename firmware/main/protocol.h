@@ -27,8 +27,17 @@ typedef struct {
     char currency[PB_CURRENCY_MAX];
     char sender[PB_SENDER_MAX]; /* vacío si no hay remitente */
     pb_verification_t verification;
+    bool test_mode;    /* evento de sandbox/prueba: se muestra como PRUEBA, no es dinero real */
+    bool official;     /* llegó por el canal oficial del proveedor (channel = OFFICIAL_WEBHOOK) */
     char time_hhmm[6]; /* "15:30" tomado del timestamp local del evento; vacío si no viene */
 } pb_payment_event_t;
+
+/*
+ * Texto de confianza para la pantalla: «Confirmado por proveedor» solo si el celular informó
+ * PROVIDER_CONFIRMED (o VERIFIED, protocolo v1); en otro caso «Posible ingreso (no verificado)».
+ * Con test_mode se antepone «PRUEBA - ».
+ */
+const char *pb_verification_label(const pb_payment_event_t *evt);
 
 typedef enum {
     PB_PARSE_OK = 0,

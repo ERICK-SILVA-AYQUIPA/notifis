@@ -21,6 +21,11 @@ data class AppSettings(
     val output: AnnouncementOutput = AnnouncementOutput.PHONE,
     /** Si el equipo no responde, anunciar en el celular para no perder el aviso. */
     val phoneFallback: Boolean = true,
+    /**
+     * Anunciar también los posibles ingresos detectados por notificación (no verificados). Si se apaga,
+     * solo se anuncian los pagos confirmados por un proveedor oficial; los demás quedan en el historial.
+     */
+    val announceCandidates: Boolean = true,
     val mutedUntil: Instant? = null,
     /** Días que se conserva el historial (privacidad, sección 5). */
     val retentionDays: Int = 90,
@@ -44,6 +49,7 @@ class SettingsRepository(private val dao: AppSettingDao) {
             output = m[OUTPUT]?.let { runCatching { AnnouncementOutput.valueOf(it) }.getOrNull() }
                 ?: AnnouncementOutput.PHONE,
             phoneFallback = m[PHONE_FALLBACK]?.toBooleanStrictOrNull() ?: true,
+            announceCandidates = m[ANNOUNCE_CANDIDATES]?.toBooleanStrictOrNull() ?: true,
             mutedUntil = m[MUTED_UNTIL]?.toLongOrNull()?.takeIf { it > 0 }?.let(Instant::ofEpochMilli),
             retentionDays = m[RETENTION_DAYS]?.toIntOrNull() ?: 90,
             diagnosticUntil = m[DIAGNOSTIC_UNTIL]?.toLongOrNull()?.takeIf { it > 0 }?.let(Instant::ofEpochMilli),
@@ -60,6 +66,7 @@ class SettingsRepository(private val dao: AppSettingDao) {
     }
     suspend fun setOutput(output: AnnouncementOutput) = put(OUTPUT, output.name)
     suspend fun setPhoneFallback(enabled: Boolean) = put(PHONE_FALLBACK, enabled.toString())
+    suspend fun setAnnounceCandidates(enabled: Boolean) = put(ANNOUNCE_CANDIDATES, enabled.toString())
     suspend fun setMutedUntil(until: Instant?) = put(MUTED_UNTIL, (until?.toEpochMilli() ?: 0L).toString())
     suspend fun setRetentionDays(days: Int) = put(RETENTION_DAYS, days.coerceIn(7, 365).toString())
 
@@ -103,6 +110,7 @@ class SettingsRepository(private val dao: AppSettingDao) {
         const val BUSINESS_PHONE = "business_phone"
         const val OUTPUT = "announcement_output"
         const val PHONE_FALLBACK = "phone_fallback"
+        const val ANNOUNCE_CANDIDATES = "announce_candidates"
         const val MUTED_UNTIL = "muted_until"
         const val RETENTION_DAYS = "retention_days"
         const val DIAGNOSTIC_UNTIL = "diagnostic_until"

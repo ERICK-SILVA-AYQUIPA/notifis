@@ -10,6 +10,9 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 import pe.pagobox.app.data.preferences.SettingsRepository
 import pe.pagobox.app.data.repositories.DiagnosticsLogger
+import pe.pagobox.domain.model.ProviderId
+import pe.pagobox.engine.integrations.BackendIntegrationStatus
+import pe.pagobox.engine.integrations.ProviderLiveStatus
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -55,6 +58,10 @@ class OfficialEventsSync(
     private val _state = MutableStateFlow(OfficialSyncState())
     val state: StateFlow<OfficialSyncState> = _state.asStateFlow()
 
+    private val _integrations = MutableStateFlow<List<ProviderLiveStatus>>(emptyList())
+    /** Estado por proveedor según el backend; vacío si no hay backend o no respondió. */
+    val integrations: StateFlow<List<ProviderLiveStatus>> = _integrations.asStateFlow()
+
     fun start() {
         scope.launch {
             while (true) {
@@ -68,6 +75,7 @@ class OfficialEventsSync(
         val s = settings.settings.first()
         if (s.backendUrl.isBlank() || s.backendToken.isBlank()) {
             _state.value = OfficialSyncState(configured = false)
+            _integrations.value = emptyList()
             return
         }
         val now = System.currentTimeMillis()
@@ -80,6 +88,7 @@ class OfficialEventsSync(
         val result = runCatching { fetch(s.backendUrl, s.backendToken, cursor) }
         result.onFailure { e ->
             _state.value = _state.value.copy(lastError = e.message ?: e.javaClass.simpleName)
+            _integrations.value = emptyList() // sin respuesta no se muestra nada como activo
             return
         }
         val (environment, newCursor, events) = result.getOrThrow()
@@ -89,6 +98,39 @@ class OfficialEventsSync(
         }
         settings.setOfficialCursor(newCursor)
         _state.value = _state.value.copy(environment = environment, lastSuccessAt = now, lastError = null)
+        _integrations.value = runCatching { fetchIntegrations(s.backendUrl, s.backendToken) }
+            .onFailure { log.warn("Canal B", "No se pudo leer el estado de integraciones: ${it.message}") }
+            .getOrDefault(emptyList())
+    }
+
+    private fun fetchIntegrations(baseUrl: String, token: String): List<ProviderLiveStatus> {
+        val conn = URL("$baseUrl/api/v1/integrations").openConnection() as HttpURLConnection
+        try {
+            conn.connectTimeout = 10_000
+            conn.readTimeout = 15_000
+            conn.setRequestProperty("Authorization", "Bearer $token")
+            if (conn.responseCode != 200) error("Backend respondió HTTP ${conn.responseCode}")
+            val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
+            val environment = json.getString("environment")
+            val arr = json.getJSONArray("providers")
+            return (0 until arr.length()).mapNotNull { i ->
+                val o = arr.getJSONObject(i)
+                val provider = runCatching { ProviderId.valueOf(o.getString("provider")) }.getOrNull() ?: return@mapNotNull null
+                val status = runCatching { BackendIntegrationStatus.valueOf(o.getString("status")) }.getOrNull() ?: return@mapNotNull null
+                ProviderLiveStatus(
+                    provider = provider,
+                    environment = environment,
+                    status = status,
+                    credentialsConfigured = o.optBoolean("credentialsConfigured", false),
+                    webhookPath = o.optStringOrNull("webhookPath"),
+                    lastCommunicationAt = o.optLongOrNull("lastCommunicationAt"),
+                    lastEventAt = o.optLongOrNull("lastEventAt"),
+                    lastError = o.optStringOrNull("lastError"),
+                )
+            }
+        } finally {
+            conn.disconnect()
+        }
     }
 
     private fun fetch(baseUrl: String, token: String, after: Long): Triple<String, Long, List<OfficialEventDto>> {
@@ -124,6 +166,8 @@ class OfficialEventsSync(
             conn.disconnect()
         }
     }
+
+    private fun JSONObject.optLongOrNull(key: String): Long? = if (!has(key) || isNull(key)) null else optLong(key)
 
     private fun JSONObject.optStringOrNull(key: String): String? = if (isNull(key)) null else optString(key).takeIf { it.isNotEmpty() }
 }

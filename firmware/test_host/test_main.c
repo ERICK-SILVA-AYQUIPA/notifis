@@ -34,6 +34,33 @@ static int test_parse_event(void)
     return 0;
 }
 
+static int test_verification_values(void)
+{
+    /* Solo PROVIDER_CONFIRMED (v2) o VERIFIED (v1) cuentan como confirmados. */
+    const char *base = "{\"type\":\"PAYMENT_EVENT\",\"eventId\":\"e\",\"sequence\":1,\"source\":\"YAPE\","
+                       "\"verificationStatus\":\"%s\",\"test\":%s}";
+    const char *values[] = {"PROVIDER_CONFIRMED", "VERIFIED", "INCOME_CANDIDATE", "DETECTED",
+                            "PENDING_VERIFICATION", "DUPLICATE", "provider_confirmed"};
+    const int confirmed[] = {1, 1, 0, 0, 0, 0, 0};
+    char json[256];
+    pb_payment_event_t e;
+    for (size_t i = 0; i < sizeof(values) / sizeof(values[0]); i++) {
+        snprintf(json, sizeof(json), base, values[i], "false");
+        CHECK(pb_parse_payment_event(json, &e) == PB_PARSE_OK);
+        CHECK((e.verification == PB_VERIFICATION_VERIFIED) == confirmed[i]);
+        CHECK(!e.test_mode);
+    }
+    /* "test" debe ser booleano true; la cadena "true" no activa el modo prueba. */
+    snprintf(json, sizeof(json), base, "INCOME_CANDIDATE", "\"true\"");
+    CHECK(pb_parse_payment_event(json, &e) == PB_PARSE_OK);
+    CHECK(!e.test_mode);
+    snprintf(json, sizeof(json), base, "INCOME_CANDIDATE", "true");
+    CHECK(pb_parse_payment_event(json, &e) == PB_PARSE_OK);
+    CHECK(e.test_mode);
+    CHECK(strcmp(pb_verification_label(&e), "PRUEBA - Posible ingreso (no verificado)") == 0);
+    return 0;
+}
+
 static int test_missing_optional_fields(void)
 {
     const char *json = "{\"type\":\"PAYMENT_EVENT\",\"eventId\":\"e\",\"sequence\":1,\"source\":\"PLIN\","
@@ -184,6 +211,18 @@ static int test_contract_with_android(void)
     char folded[PB_SENDER_MAX];
     pb_ascii_fold(e.sender, folded, sizeof(folded));
     CHECK(strcmp(folded, "Jose Nunez") == 0);
+    CHECK(e.verification == PB_VERIFICATION_DETECTED); /* INCOME_CANDIDATE: no es confirmación */
+    CHECK(!e.test_mode && !e.official);
+    CHECK(strcmp(pb_verification_label(&e), "Posible ingreso (no verificado)") == 0);
+
+    json = read_fixture("payment_event_confirmed.json");
+    CHECK(json != NULL);
+    CHECK(pb_parse_payment_event(json, &e) == PB_PARSE_OK);
+    CHECK(e.verification == PB_VERIFICATION_VERIFIED);
+    CHECK(e.test_mode && e.official);
+    CHECK(e.amount_cents == 2500);
+    CHECK(e.sender[0] == '\0');
+    CHECK(strcmp(pb_verification_label(&e), "PRUEBA - Confirmado por proveedor") == 0);
 
     json = read_fixture("test_event.json");
     CHECK(json != NULL);
@@ -211,7 +250,7 @@ static int test_self_test_report(void)
 
 int main(void)
 {
-    int failed = test_parse_event() + test_missing_optional_fields() + test_invalid_messages() +
+    int failed = test_parse_event() + test_verification_values() + test_missing_optional_fields() + test_invalid_messages() +
                  test_ack_and_sequence() + test_display_states() +
                  test_messages() + test_text() + test_status() + test_wav() + test_battery() +
                  test_contract_with_android() + test_self_test_report();

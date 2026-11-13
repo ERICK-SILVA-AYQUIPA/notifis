@@ -87,7 +87,7 @@ class AnnouncementCoordinator(
                 continue
             }
             queue.muteUntil(current.mutedUntil)
-            val ok = wakeLock.hold("announce", ANNOUNCE_WAKE_MS) { announce(event, current.output, current.phoneFallback) }
+            val ok = wakeLock.hold("announce", ANNOUNCE_WAKE_MS) { announce(event, current.output, current.phoneFallback, current.announceCandidates) }
             if (ok) {
                 queue.markAnnounced(event.eventId)
             } else {
@@ -97,7 +97,18 @@ class AnnouncementCoordinator(
         }
     }
 
-    private suspend fun announce(event: PaymentEvent, output: AnnouncementOutput, phoneFallback: Boolean): Boolean {
+    private suspend fun announce(
+        event: PaymentEvent,
+        output: AnnouncementOutput,
+        phoneFallback: Boolean,
+        announceCandidates: Boolean,
+    ): Boolean {
+        if (!event.isProviderConfirmed && !announceCandidates) {
+            // El comerciante pidió anunciar solo pagos confirmados por un proveedor oficial.
+            payments.updateAnnouncement(event.eventId, AnnouncementStatus.SKIPPED)
+            log.info("Anuncios", "${event.eventId} no se anuncia: es un posible ingreso sin confirmación oficial")
+            return true
+        }
         if (Instant.now().toEpochMilli() - event.detectedTimestamp.toEpochMilli() > MAX_PENDING_AGE_MS) {
             // Un aviso muy atrasado confundiría al comerciante: se registra como no entregado.
             payments.updateAnnouncement(event.eventId, AnnouncementStatus.FAILED)

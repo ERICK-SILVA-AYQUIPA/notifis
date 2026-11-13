@@ -1,0 +1,1 @@
+{"type":"PAYMENT_EVENT","eventId":"evt_000002","sequence":2,"source":"YAPE","eventType":"INCOMING_TRANSFER","amount":25.00,"currency":"PEN","sender":null,"timestamp":"2026-11-12T15:30:00-05:00","verificationStatus":"PROVIDER_CONFIRMED","announcementStatus":"PENDING","channel":"OFFICIAL_WEBHOOK","provider":"MERCADO_PAGO","test":true}

@@ -212,7 +212,7 @@ class PaymentProcessor(
             val existing = repository.byProviderExternalId(provider.name, dto.externalTransactionId)
             val event: PaymentEvent
             if (existing != null) {
-                if (existing.verificationStatus == status.name) continue
+                if (existing.verificationStatus == status) continue
                 val becameConfirmed = status == VerificationStatus.PROVIDER_CONFIRMED
                 repository.updateOfficial(
                     existing.eventId, status, money,

@@ -72,7 +72,8 @@ class VerificationAndProtocolTest {
             "{\"type\":\"PAYMENT_EVENT\",\"eventId\":\"evt_000001\",\"sequence\":1,\"source\":\"YAPE\"," +
                 "\"eventType\":\"INCOMING_TRANSFER\",\"amount\":35.00,\"currency\":\"PEN\"," +
                 "\"sender\":\"Juan \\\"JJ\\\"\",\"timestamp\":\"2026-11-12T15:30:00-05:00\"," +
-                "\"verificationStatus\":\"DETECTED\",\"announcementStatus\":\"PENDING\"}",
+                "\"verificationStatus\":\"INCOME_CANDIDATE\",\"announcementStatus\":\"PENDING\"," +
+                "\"channel\":\"ANDROID_NOTIFICATION\",\"provider\":null,\"test\":false}",
             json,
         )
     }
