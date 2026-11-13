@@ -7,43 +7,56 @@ import pe.pagobox.domain.model.Money
 import pe.pagobox.domain.model.PaymentEvent
 import pe.pagobox.domain.model.SourceId
 import pe.pagobox.domain.model.VerificationStatus
-import pe.pagobox.engine.source.NotificationRule
-import pe.pagobox.engine.source.RuleBasedNotificationAdapter
+import pe.pagobox.domain.model.CompatibilityStatus
+import pe.pagobox.engine.source.BankNotificationAdapter
+import pe.pagobox.engine.source.NotificationFormat
 import java.time.Instant
 
-/**
- * Adaptador con un formato FICTICIO, solo para probar el motor.
- * No representa el formato real de ninguna entidad.
- */
+/** Adaptador sintético: formatos FICTICIOS, solo para probar el motor. No representan a ninguna entidad. */
+class SyntheticAdapter(formats: List<NotificationFormat>) : BankNotificationAdapter(
+    sourceId = SourceId.OTHER,
+    officialPackages = setOf(TestFixtures.TEST_PACKAGE),
+    formats = formats,
+    declaredStatus = CompatibilityStatus.CONFIGURED,
+)
+
 object TestFixtures {
     const val TEST_PACKAGE = "test.pagobox.fakewallet"
 
-    val testAdapter = RuleBasedNotificationAdapter(
-        sourceId = SourceId.OTHER,
-        packageNames = setOf(TEST_PACKAGE),
-        rules = listOf(
-            NotificationRule(
-                id = "test-ingreso",
-                eventType = EventType.INCOMING_TRANSFER,
-                pattern = Regex("""PRUEBA: (?<remitente>[^\n]+?) te envió (?<monto>S/\.? ?[\d,.]+)"""),
-            ),
-            NotificationRule(
-                id = "test-ingreso-sin-monto",
-                eventType = EventType.INCOMING_TRANSFER,
-                pattern = Regex("""PRUEBA: recibiste un pago"""),
-            ),
-            NotificationRule(
-                id = "test-egreso",
-                eventType = EventType.OUTGOING_TRANSFER,
-                pattern = Regex("""PRUEBA: enviaste (?<monto>S/\.? ?[\d,.]+)"""),
-            ),
-            NotificationRule(
-                id = "test-solicitud",
-                eventType = EventType.PAYMENT_REQUEST,
-                pattern = Regex("""PRUEBA: .+ te solicita (?<monto>S/\.? ?[\d,.]+)"""),
-            ),
+    private fun synthetic(id: String, type: EventType, pattern: String, sample: String, amount: String?) =
+        NotificationFormat(
+            id = id,
+            eventType = type,
+            pattern = Regex(pattern),
+            anonymizedSample = sample,
+            expectedAmount = amount,
+            provenance = "Sintético para pruebas del motor",
+            synthetic = true,
+        )
+
+    val formats = listOf(
+        synthetic(
+            "test-ingreso", EventType.INCOMING_TRANSFER,
+            """PRUEBA: (?<remitente>[^\n]+?) te envió (?<monto>(?:S/\.?|PEN|US\$|USD) ?[\d,.]+)""",
+            "Billetera de prueba \n PRUEBA: <NOMBRE> te envió S/ 99.99", "99.99",
+        ),
+        synthetic("test-ingreso-sin-monto", EventType.INCOMING_TRANSFER, """PRUEBA: recibiste un pago""", "PRUEBA: recibiste un pago", null),
+        synthetic(
+            "test-egreso", EventType.OUTGOING_TRANSFER, """PRUEBA: enviaste (?<monto>S/\.? ?[\d,.]+)""",
+            "PRUEBA: enviaste S/ 99.99", "99.99",
+        ),
+        synthetic(
+            "test-solicitud", EventType.PAYMENT_REQUEST, """PRUEBA: .+ te solicita (?<monto>S/\.? ?[\d,.]+)""",
+            "PRUEBA: <NOMBRE> te solicita S/ 99.99", "99.99",
+        ),
+        // Regla deliberadamente mal declarada: dice ingreso pero el texto es un egreso.
+        synthetic(
+            "test-regla-erronea", EventType.INCOMING_TRANSFER, """PRUEBA-MAL: pagaste (?<monto>S/ ?[\d,.]+)""",
+            "PRUEBA-MAL: pagaste S/ 99.99", "99.99",
         ),
     )
+
+    val testAdapter = SyntheticAdapter(formats)
 
     fun event(
         id: String,

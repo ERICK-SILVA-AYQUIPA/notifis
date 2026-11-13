@@ -1,21 +1,22 @@
 package pe.pagobox.engine.source
 
-import pe.pagobox.domain.model.SourceId
+import pe.pagobox.engine.source.banks.BancoNacionAdapter
+import pe.pagobox.engine.source.banks.BbvaAdapter
+import pe.pagobox.engine.source.banks.BcpAdapter
+import pe.pagobox.engine.source.banks.InterbankAdapter
+import pe.pagobox.engine.source.banks.PlinAdapter
+import pe.pagobox.engine.source.banks.ScotiabankAdapter
+import pe.pagobox.engine.source.banks.YapeAdapter
 
-/**
- * Adaptadores por entidad. TODOS empiezan sin reglas (NOT_IMPLEMENTED) a propósito:
- * la especificación prohíbe inventar compatibilidad bancaria. Las reglas y los nombres
- * de paquete se agregan aquí después de recopilar notificaciones reales autorizadas
- * (fase 1) y se documentan en docs/compatibilidad-bancaria.md.
- */
+/** Adaptadores independientes por entidad (fase 3). */
 object KnownSources {
     fun all(): List<PaymentSourceAdapter> = listOf(
-        RuleBasedNotificationAdapter(SourceId.YAPE, packageNames = emptySet(), rules = emptyList()),
-        RuleBasedNotificationAdapter(SourceId.PLIN, packageNames = emptySet(), rules = emptyList()),
-        RuleBasedNotificationAdapter(SourceId.BCP, packageNames = emptySet(), rules = emptyList()),
-        RuleBasedNotificationAdapter(SourceId.INTERBANK, packageNames = emptySet(), rules = emptyList()),
-        RuleBasedNotificationAdapter(SourceId.BBVA, packageNames = emptySet(), rules = emptyList()),
-        RuleBasedNotificationAdapter(SourceId.SCOTIABANK, packageNames = emptySet(), rules = emptyList()),
-        RuleBasedNotificationAdapter(SourceId.BANCO_NACION, packageNames = emptySet(), rules = emptyList()),
+        YapeAdapter,
+        PlinAdapter,
+        BcpAdapter,
+        InterbankAdapter,
+        BbvaAdapter,
+        ScotiabankAdapter,
+        BancoNacionAdapter,
     )
 }

@@ -4,13 +4,18 @@ import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import pe.pagobox.app.container
+import pe.pagobox.app.diagnostics.CapturedNotification
 import pe.pagobox.engine.source.RawNotification
 import java.time.Instant
 
 /**
- * Capa de ingreso: convierte StatusBarNotification en RawNotification y la entrega
- * al motor. No contiene reglas bancarias (sección 17). Solo lee el contenido de
- * paquetes de entidades supervisadas.
+ * Capa de ingreso: convierte StatusBarNotification en RawNotification y la entrega al motor.
+ * No contiene reglas bancarias (sección 17).
+ *
+ * Qué se lee:
+ * - Paquetes asociados a una entidad (en cualquier estado): siempre.
+ * - Cualquier otra app: solo mientras el modo diagnóstico está activo (tiempo limitado, lo
+ *   activa el usuario), y lo que se guarda en disco está anonimizado.
  */
 class PaymentNotificationListener : NotificationListenerService() {
     override fun onListenerConnected() {
@@ -26,20 +31,37 @@ class PaymentNotificationListener : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        val processor = container.processor
-        if (!processor.isSupervised(sbn.packageName)) return
+        val c = container
+        if (sbn.packageName == packageName) return
+        val diagnosticMode = c.diagnosticModeActive()
+        if (!diagnosticMode && !c.processor.isKnownPackage(sbn.packageName)) return
         // Las notificaciones de resumen de grupo no describen un pago individual.
         if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
 
-        val extras = sbn.notification.extras
-        processor.submit(
-            RawNotification(
-                packageName = sbn.packageName,
-                title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString(),
-                text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString(),
-                bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString(),
-                postedAt = Instant.ofEpochMilli(sbn.postTime),
+        val n = sbn.notification
+        val extras = n.extras
+        val raw = RawNotification(
+            packageName = sbn.packageName,
+            title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString(),
+            text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString(),
+            bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString(),
+            postedAt = Instant.ofEpochMilli(sbn.postTime),
+            textLines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.map { it.toString() }.orEmpty(),
+            subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString(),
+            notificationKey = sbn.key,
+            whenMillis = n.`when`.takeIf { it > 0 && extras.getBoolean(Notification.EXTRA_SHOW_WHEN, true) },
+        )
+        val info = c.packageInspector.inspect(sbn.packageName)
+        c.processor.submit(
+            CapturedNotification(
+                raw = raw,
+                appLabel = info.label,
+                appVersion = info.versionName,
+                category = n.category,
+                extraKeys = extras.keySet().sorted(),
+                listenerConnected = c.listenerConnected.value,
             ),
+            diagnosticMode,
         )
     }
 }

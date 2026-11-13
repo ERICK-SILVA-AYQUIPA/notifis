@@ -1,6 +1,11 @@
 package pe.pagobox.app.data.repositories
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import pe.pagobox.app.data.local.PagoboxDatabase
 import pe.pagobox.app.data.local.PaymentEventEntity
@@ -34,7 +39,8 @@ class PaymentRepository(private val db: PagoboxDatabase) {
             db.seenFingerprints().upsert(SeenFingerprintEntity(fingerprint, at.toEpochMilli()))
     }
 
-    suspend fun nextSequence(): Long = dao.maxSequence() + 1
+    /** Máxima secuencia guardada en el historial (puede bajar si se aplica la retención). */
+    suspend fun maxStoredSequence(): Long = dao.maxSequence()
 
     suspend fun save(event: PaymentEvent, reason: String) {
         dao.insert(event.toEntity(reason, System.currentTimeMillis()))
@@ -44,8 +50,16 @@ class PaymentRepository(private val db: PagoboxDatabase) {
 
     fun observe(eventId: String): Flow<PaymentEventEntity?> = dao.observe(eventId)
 
-    fun observeToday(zone: ZoneId = ZoneId.of("America/Lima")): Flow<DailySummary> {
-        val start = LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
+    /** Resumen del día en curso; cambia de día automáticamente a medianoche (corrige E6). */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun observeToday(zone: ZoneId = ZoneId.of("America/Lima")): Flow<DailySummary> = flow {
+        while (true) {
+            emit(LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli())
+            delay(60_000)
+        }
+    }.distinctUntilChanged().flatMapLatest { start -> summarySince(start) }
+
+    private fun summarySince(start: Long): Flow<DailySummary> {
         return dao.observeSince(start).map { events ->
             val incomes = events.filter {
                 it.state in INCOME_STATES && it.amountCents != null && it.currency == "PEN"
@@ -74,6 +88,7 @@ class PaymentRepository(private val db: PagoboxDatabase) {
         db.announcementHistory().deleteOlderThan(before)
         db.diagnosticLogs().deleteOlderThan(before)
         db.seenFingerprints().deleteOlderThan(System.currentTimeMillis() - 2L * 24 * 3600 * 1000)
+        db.notificationSamples().deleteOlderThan(before)
     }
 
     private companion object {

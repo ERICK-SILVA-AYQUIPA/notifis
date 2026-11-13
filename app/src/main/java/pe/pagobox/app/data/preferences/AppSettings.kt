@@ -24,6 +24,8 @@ data class AppSettings(
     val mutedUntil: Instant? = null,
     /** Días que se conserva el historial (privacidad, sección 5). */
     val retentionDays: Int = 90,
+    /** Fin del modo de diagnóstico de notificaciones (captura de todas las apps), o null si está apagado. */
+    val diagnosticUntil: Instant? = null,
 )
 
 /** Configuración general persistida en la tabla AppSettings (clave-valor). */
@@ -40,6 +42,7 @@ class SettingsRepository(private val dao: AppSettingDao) {
             phoneFallback = m[PHONE_FALLBACK]?.toBooleanStrictOrNull() ?: true,
             mutedUntil = m[MUTED_UNTIL]?.toLongOrNull()?.takeIf { it > 0 }?.let(Instant::ofEpochMilli),
             retentionDays = m[RETENTION_DAYS]?.toIntOrNull() ?: 90,
+            diagnosticUntil = m[DIAGNOSTIC_UNTIL]?.toLongOrNull()?.takeIf { it > 0 }?.let(Instant::ofEpochMilli),
         )
     }
 
@@ -54,6 +57,24 @@ class SettingsRepository(private val dao: AppSettingDao) {
     suspend fun setMutedUntil(until: Instant?) = put(MUTED_UNTIL, (until?.toEpochMilli() ?: 0L).toString())
     suspend fun setRetentionDays(days: Int) = put(RETENTION_DAYS, days.coerceIn(7, 365).toString())
 
+    suspend fun setDiagnosticUntil(until: Instant?) = put(DIAGNOSTIC_UNTIL, (until?.toEpochMilli() ?: 0L).toString())
+
+    /**
+     * Secuencia de eventos monotónica y persistente: nunca vuelve a empezar aunque se borre el
+     * historial, y nunca queda por debajo de [minimum] (lo guardado y lo confirmado por el equipo).
+     * Corrige el error E1 de la auditoría. Se consulta con [peekNextSequence] y solo se fija con
+     * [commitSequence] cuando de verdad se crea un evento (el procesador trabaja en serie).
+     */
+    suspend fun peekNextSequence(minimum: Long): Long {
+        val current = dao.get(SEQUENCE)?.toLongOrNull() ?: 0L
+        return maxOf(current, minimum) + 1
+    }
+
+    suspend fun commitSequence(sequence: Long) {
+        val current = dao.get(SEQUENCE)?.toLongOrNull() ?: 0L
+        if (sequence > current) put(SEQUENCE, sequence.toString())
+    }
+
     private suspend fun put(key: String, value: String) =
         dao.upsert(AppSettingEntity(key, value, System.currentTimeMillis()))
 
@@ -66,5 +87,7 @@ class SettingsRepository(private val dao: AppSettingDao) {
         const val PHONE_FALLBACK = "phone_fallback"
         const val MUTED_UNTIL = "muted_until"
         const val RETENTION_DAYS = "retention_days"
+        const val DIAGNOSTIC_UNTIL = "diagnostic_until"
+        const val SEQUENCE = "event_sequence"
     }
 }

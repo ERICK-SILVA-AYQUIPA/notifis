@@ -32,6 +32,8 @@ import pe.pagobox.app.ui.banks.BankSourcesScreen
 import pe.pagobox.app.ui.dashboard.DashboardScreen
 import pe.pagobox.app.ui.devices.DeviceManagementScreen
 import pe.pagobox.app.ui.diagnostics.DiagnosticsScreen
+import pe.pagobox.app.ui.diagnostics.NotificationDiagnosticsScreen
+import pe.pagobox.app.ui.tests.PhysicalTestsScreen
 import pe.pagobox.app.ui.history.EventDetailScreen
 import pe.pagobox.app.ui.history.HistoryScreen
 import pe.pagobox.app.ui.onboarding.OnboardingScreen
@@ -50,6 +52,8 @@ private object Routes {
     const val VOICE = "voice"
     const val DIAGNOSTICS = "diagnostics"
     const val BUSINESS = "business"
+    const val NOTIFICATION_DIAGNOSTICS = "notification_diagnostics"
+    const val PHYSICAL_TESTS = "physical_tests"
 
     fun event(id: String) = "event/$id"
 }
@@ -73,6 +77,8 @@ private val titles = mapOf(
     Routes.VOICE to "Voz",
     Routes.DIAGNOSTICS to "Diagnóstico",
     Routes.BUSINESS to "Negocio",
+    Routes.NOTIFICATION_DIAGNOSTICS to "Diagnóstico de notificaciones",
+    Routes.PHYSICAL_TESTS to "Pruebas físicas",
     Routes.ONBOARDING to "Configuración inicial",
 )
 
@@ -138,12 +144,16 @@ fun PagoboxApp(container: AppContainer, onboardingDone: Boolean) {
                     onVoice = { nav.navigate(Routes.VOICE) },
                     onDiagnostics = { nav.navigate(Routes.DIAGNOSTICS) },
                     onBusiness = { nav.navigate(Routes.BUSINESS) },
+                    onNotificationDiagnostics = { nav.navigate(Routes.NOTIFICATION_DIAGNOSTICS) },
+                    onPhysicalTests = { nav.navigate(Routes.PHYSICAL_TESTS) },
                 )
             }
             composable(Routes.EVENT, arguments = listOf(navArgument("eventId") { type = NavType.StringType })) {
                 EventDetailScreen(container, it.arguments?.getString("eventId").orEmpty())
             }
-            composable(Routes.BANKS) { BankSourcesScreen(container) }
+            composable(Routes.BANKS) { BankSourcesScreen(container) { nav.navigate(Routes.NOTIFICATION_DIAGNOSTICS) } }
+            composable(Routes.NOTIFICATION_DIAGNOSTICS) { NotificationDiagnosticsScreen(container) }
+            composable(Routes.PHYSICAL_TESTS) { PhysicalTestsScreen(container) }
             composable(Routes.VOICE) { VoiceSettingsScreen(container) }
             composable(Routes.DIAGNOSTICS) { DiagnosticsScreen(container) }
             composable(Routes.BUSINESS) { BusinessSettingsScreen(container) { nav.popBackStack() } }

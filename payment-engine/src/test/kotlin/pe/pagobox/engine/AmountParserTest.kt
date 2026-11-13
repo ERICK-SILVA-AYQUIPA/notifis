@@ -19,6 +19,7 @@ class AmountParserTest {
         assertEquals(BigDecimal("1250.00"), pen("S/ 1,250"))
         assertEquals(BigDecimal("1234567.89"), pen("S/ 1,234,567.89"))
         assertEquals(BigDecimal("15.00"), pen("15"))
+        assertEquals(BigDecimal("20.00"), pen("PEN 20.00"))
     }
 
     @Test

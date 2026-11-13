@@ -9,25 +9,36 @@ cumplidos hasta completar las pruebas manuales.
 | Módulo | Archivo | Qué comprueba |
 |---|---|---|
 | Dominio | `EventStateMachineTest` | No se puede pasar de RECEIVED a VERIFIED; estados finales sin salida |
-| Importes | `AmountParserTest` | Formatos peruanos (S/, S/., miles con coma, decimales), dólares, textos ambiguos rechazados |
-| Motor | `PaymentPipelineTest` | Ingresos → candidato (nunca verificado); duplicados; egresos, solicitudes, publicidad y formatos desconocidos rechazados; notificaciones antiguas; ingreso sin importe → revisión; paquetes no supervisados ignorados; ninguna entidad real declarada compatible |
-| Voz | `VoiceTest` | Importes hablados (sol/soles, céntimos), frases predeterminadas, partes opcionales, plantillas inválidas, hora de Lima |
-| Cola | `AnnouncementQueueTest` | Orden de llegada, sin interrupciones, sin repetir anunciados, reintento tras fallo, silencio, prioridades, restauración tras reinicio |
-| Verificación y protocolo | `VerificationAndProtocolTest` | Solo una confirmación oficial verifica; JSON del evento con escape correcto |
-| App | `AppLogicTest` | Prioridad de frases por entidad, remitente opcional, plantillas desactivadas, persistencia sin pérdida de precisión |
-| Firmware (host) | `firmware/test_host` | Lectura de eventos y comandos, campos opcionales, mensajes inválidos, ACK, control de secuencia, estados de pantalla, texto sin tildes, formato de importes, STATUS sin token cuando no hay Wi-Fi, lectura de WAV, curva de batería |
+| Importes | `AmountParserTest` | Formatos peruanos (S/, S/., PEN, miles con coma, decimales), dólares (US$, USD), textos ambiguos rechazados |
+| Motor | `PaymentPipelineTest` | Ingreso → candidato (nunca verificado); entidad sin formatos → solo muestra; formato desconocido; entidad pausada o con formato cambiado; secuencia solo al crear eventos |
+| Suite sintética (fase 4) | `SyntheticNotificationSuiteTest` | Pago recibido, dinero enviado, solicitud, duplicado del sistema, dos pagos iguales legítimos, decimales, incompleta, desconocida, caracteres especiales, monedas, antiguas y futuras, regla mal escrita que dice «pagaste» bloqueada por la validación independiente de egresos |
+| Adaptadores (fase 3) | `BankAdaptersTest` | Los 7 adaptadores existen, no tienen formatos inventados ni paquetes sin evidencia, devuelven «formato desconocido», y cada formato real (cuando exista) reconoce su muestra |
+| Compatibilidad (fase 5) | `CompatibilityRegistryTest` | Ningún estado declarado sin evidencia; VERIFIED_COMPATIBLE exige protocolo completo; estado efectivo por celular |
+| Privacidad | `AnonymizerTest` | Importes, dígitos, correos y nombres anonimizados; OTP/PIN/clave omitidos por completo |
+| Integración | `EndToEndIntegrationTest` | Notificación → motor → cola → frase → JSON idéntico al fixture que lee el firmware |
+| Voz | `VoiceTest` | Importes hablados, frases predeterminadas, plantillas inválidas, hora de Lima |
+| Cola | `AnnouncementQueueTest` | Orden, sin interrupciones, sin repetir, reintentos, silencio, prioridades, restauración |
+| Verificación y protocolo | `VerificationAndProtocolTest` | Solo una confirmación oficial verifica; JSON con escape correcto |
+| App | `AppLogicTest` | Prioridad de frases, remitente opcional, persistencia sin pérdida de precisión |
+| App (base de datos) | `MigrationSchemaTest` | La migración 1→2 crea exactamente las tablas e índices que Room exporta en el esquema v2 |
+| Firmware (host) | `firmware/test_host` | Mensajes y comandos (incl. TEST_EVENT y SELF_TEST), ACK, secuencia, pantalla, importes, STATUS con motivo de reinicio, informe de autoprueba, WAV, batería y **contrato con Android** usando `protocol-fixtures/` |
 | Compilación | CI | APK de pruebas y firmware ESP32-S3 compilados en cada cambio |
+
+Resultado local de las pruebas del motor y dominio (JVM): ver la última ejecución de CI en GitHub Actions; las
+pruebas de la app (`:app:testDebugUnitTest`) y la compilación del APK y del firmware solo se ejecutan en CI.
 
 ## Pruebas manuales pendientes (sección 10)
 
-Registrar para cada una: fecha, modelo de celular, versión de Android, versión de la app bancaria y resultado.
+El protocolo completo, con pasos y resultados esperados, está en [guia-pruebas-fisicas.md](guia-pruebas-fisicas.md)
+y en la app (**Ajustes → Pruebas físicas**). Registrar para cada una: fecha, modelo de celular, versión de
+Android, versión de la app bancaria y resultado.
 
 ### Funcionales
 
 | Prueba | Estado |
 |---|---|
-| Notificación real de Yape | Pendiente (requiere reglas de fase 1) |
-| Notificación real de Plin | Pendiente (requiere reglas de fase 1) |
+| Notificación real de Yape | Pendiente: no hay muestras reales (entidad en «Esperando muestras») |
+| Notificación real de Plin | Pendiente: no hay muestras reales (entidad en «Esperando muestras») |
 | Notificaciones bancarias | Pendiente |
 | Ignorar egresos reales | Pendiente |
 | Importes con decimales y cantidades grandes | Cubierto en pruebas automáticas; falta con notificaciones reales |

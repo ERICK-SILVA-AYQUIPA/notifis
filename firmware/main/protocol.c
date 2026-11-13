@@ -70,6 +70,13 @@ pb_parse_result_t pb_parse_message(const char *json, pb_message_in_t *out)
         out->type = PB_MSG_GET_STATUS;
     } else if (strcmp(t, "PLAY_TEST") == 0) {
         out->type = PB_MSG_PLAY_TEST;
+    } else if (strcmp(t, "SELF_TEST") == 0) {
+        out->type = PB_MSG_SELF_TEST;
+    } else if (strcmp(t, "TEST_EVENT") == 0) {
+        out->type = PB_MSG_TEST_EVENT;
+        if (!copy_string(root, "testId", out->test_id, sizeof(out->test_id), true) || out->test_id[0] == '\0') {
+            result = PB_PARSE_MISSING_FIELD;
+        }
     } else if (strcmp(t, "SET_VOLUME") == 0) {
         out->type = PB_MSG_SET_VOLUME;
         const cJSON *v = cJSON_GetObjectItemCaseSensitive(root, "volume");
@@ -138,6 +145,37 @@ int pb_build_status(char *buf, int buf_len, const pb_status_t *s)
     if (s->error != NULL) {
         cJSON_AddStringToObject(o, "error", s->error);
     }
+    if (s->reset_reason != NULL) {
+        cJSON_AddStringToObject(o, "resetReason", s->reset_reason);
+    }
+    cJSON_AddNumberToObject(o, "uptimeS", s->uptime_s);
+    bool ok = cJSON_PrintPreallocated(o, buf, buf_len, false);
+    cJSON_Delete(o);
+    return ok ? (int)strlen(buf) : -1;
+}
+
+int pb_build_self_test(char *buf, int buf_len, const pb_self_test_t *t)
+{
+    cJSON *o = cJSON_CreateObject();
+    cJSON_AddStringToObject(o, "type", "SELF_TEST_RESULT");
+    cJSON_AddStringToObject(o, "firmware", t->firmware);
+    cJSON_AddBoolToObject(o, "display", t->display_ok);
+    cJSON_AddBoolToObject(o, "audio", t->audio_ok);
+    cJSON_AddBoolToObject(o, "ble", t->ble_connected);
+    cJSON_AddBoolToObject(o, "wifi", t->wifi_connected);
+    if (t->battery >= 0) {
+        cJSON_AddNumberToObject(o, "battery", t->battery);
+    } else {
+        cJSON_AddNullToObject(o, "battery");
+    }
+    cJSON_AddBoolToObject(o, "charging", t->charging);
+    cJSON *b = cJSON_AddObjectToObject(o, "buttons");
+    cJSON_AddNumberToObject(b, "volUp", t->btn_up);
+    cJSON_AddNumberToObject(b, "volDown", t->btn_down);
+    cJSON_AddNumberToObject(b, "mute", t->btn_mute);
+    cJSON_AddStringToObject(o, "resetReason", t->reset_reason);
+    cJSON_AddNumberToObject(o, "uptimeS", t->uptime_s);
+    cJSON_AddNumberToObject(o, "freeHeap", t->free_heap);
     bool ok = cJSON_PrintPreallocated(o, buf, buf_len, false);
     cJSON_Delete(o);
     return ok ? (int)strlen(buf) : -1;

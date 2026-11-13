@@ -60,6 +60,12 @@ class AnnouncementCoordinator(
         scope.launch { devices.link.state.collect { notifyNewIncome() } }
     }
 
+    /** Audio de la prueba de extremo a extremo: deja claro que no es un pago. */
+    suspend fun synthesizeTest(file: java.io.File): Boolean {
+        val profile = voiceDao.get() ?: DEFAULT_VOICE
+        return voice.synthesizeToFile("Prueba de PAGOBOX. Esto no es un pago.", profile, file)
+    }
+
     fun notifyNewIncome() {
         wake.trySend(Unit)
     }

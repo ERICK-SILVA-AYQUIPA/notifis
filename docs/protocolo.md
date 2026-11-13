@@ -54,6 +54,11 @@ varios fragmentos y el receptor lo reensambla hasta el `\n`.
 | `SET_VOLUME` | `volume` 0–100 | Cambia y guarda el volumen; responde `STATUS` |
 | `WIFI_CONFIG` | `ssid`, `password` | Guarda la red y se conecta; responde `STATUS` |
 | `PLAY_TEST` | — | Reproduce el tono de prueba |
+| `TEST_EVENT` | `testId` | Prueba de extremo a extremo: muestra «PRUEBA / No es un pago», espera el audio con `eventId = testId`, responde `ACK RECEIVED` y `ACK PLAYED` con `sequence: 0`. **No** toca la secuencia de pagos |
+| `SELF_TEST` | — | Autoprueba: recuadro en pantalla 2 s y tono; responde `SELF_TEST_RESULT` |
+
+Fixtures compartidos por las pruebas de Kotlin y del firmware: `protocol-fixtures/` (si un lado cambia el
+formato, fallan las pruebas de ambos).
 
 ## Mensajes del equipo al celular
 
@@ -78,6 +83,29 @@ varios fragmentos y el receptor lo reensambla hasta el `\n`.
 ```
 
 `battery` es `null` si no hay batería medible. Sin Wi-Fi, `wifiIp` es `null` y no se envía `audioToken`.
+También incluye `resetReason` (`POWERON`, `EXTERNAL`, `SOFTWARE`, `PANIC`, `INT_WATCHDOG`, `TASK_WATCHDOG`,
+`WATCHDOG`, `DEEPSLEEP`, `BROWNOUT` u `OTHER`) y `uptimeS`. Tras un reinicio por watchdog o pánico, `error` lo informa.
+
+### `SELF_TEST_RESULT`
+
+```json
+{
+  "type": "SELF_TEST_RESULT", "firmware": "1.0.0", "display": true, "audio": true, "ble": true,
+  "wifi": false, "battery": 82, "charging": false,
+  "buttons": { "volUp": 1, "volDown": 0, "mute": 2 },
+  "resetReason": "POWERON", "uptimeS": 3600, "freeHeap": 182000
+}
+```
+
+`display` y `audio` indican que el componente se inicializó y respondió; que la imagen y el sonido sean
+correctos lo confirma el técnico en la prueba física (HW-01).
+
+## Secuencia de eventos
+
+- La genera el celular: es **persistente y monotónica** (`event_sequence` en la configuración). No se reinicia
+  al borrar el historial y nunca queda por debajo de la última secuencia confirmada por el equipo.
+- Solo se consume cuando se crea un evento.
+- El equipo descarta (con `ACK` pero sin anunciar) cualquier secuencia menor o igual a la última guardada en NVS.
 
 ## Audio por Wi-Fi
 

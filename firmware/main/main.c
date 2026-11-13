@@ -21,6 +21,8 @@
 #include "esp_log.h"
 #include "esp_mac.h"
 #include "esp_ota_ops.h"
+#include "esp_system.h"
+#include "esp_heap_caps.h"
 #include "esp_task_wdt.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -49,12 +51,32 @@ static char s_device_id[16];
 static bool s_muted;
 static bool s_has_last_payment;
 static pb_payment_event_t s_last_payment;
+static bool s_display_ok, s_audio_ok;
+static uint32_t s_btn_count[3];
+
+static const char *reset_reason(void)
+{
+    switch (esp_reset_reason()) {
+    case ESP_RST_POWERON: return "POWERON";
+    case ESP_RST_EXT: return "EXTERNAL";
+    case ESP_RST_SW: return "SOFTWARE";
+    case ESP_RST_PANIC: return "PANIC";
+    case ESP_RST_INT_WDT: return "INT_WATCHDOG";
+    case ESP_RST_TASK_WDT: return "TASK_WATCHDOG";
+    case ESP_RST_WDT: return "WATCHDOG";
+    case ESP_RST_DEEPSLEEP: return "DEEPSLEEP";
+    case ESP_RST_BROWNOUT: return "BROWNOUT";
+    default: return "OTHER";
+    }
+}
+
+static uint32_t uptime_s(void) { return (uint32_t)(esp_timer_get_time() / 1000000); }
 
 /* ---------- Mensajes salientes ---------- */
 
 static void send_status(void)
 {
-    char buf[384];
+    char buf[448];
     pb_status_t st = {
         .device_id = s_device_id,
         .firmware = esp_app_get_description()->version,
@@ -65,6 +87,8 @@ static void send_status(void)
         .audio_token = pb_wifi_audio_token(),
         .last_sequence = s_settings.last_sequence,
         .error = pb_diag_error(),
+        .reset_reason = reset_reason(),
+        .uptime_s = uptime_s(),
     };
     if (pb_build_status(buf, sizeof(buf), &st) > 0) {
         pb_ble_send(buf);
@@ -152,6 +176,55 @@ static void handle_payment(const pb_payment_event_t *e)
     pb_led_set(PB_LED_OK);
 }
 
+/* Prueba de entrega completa: mismo camino que un pago, sin registrarlo ni avanzar la secuencia. */
+static void handle_test_event(const char *test_id)
+{
+    pb_payment_event_t t = {0};
+    strncpy(t.event_id, test_id, sizeof(t.event_id) - 1);
+    t.sequence = 0;
+    strcpy(t.source, "PRUEBA");
+    t.amount_cents = -1;
+    strcpy(t.sender, "No es un pago");
+    send_ack(&t, "RECEIVED");
+    pb_display_set_payment(&t);
+    xSemaphoreTake(s_state_lock, portMAX_DELAY);
+    pb_display_on_payment(&s_display, esp_timer_get_time());
+    xSemaphoreGive(s_state_lock);
+    bool was_muted = s_muted;
+    s_muted = false;
+    play_announcement(&t);
+    s_muted = was_muted;
+    send_ack(&t, "PLAYED");
+}
+
+static void handle_self_test(void)
+{
+    /* Pantalla y audio: el técnico confirma visualmente y de oído; aquí se informa la inicialización. */
+    pb_display_show_passkey(123456); /* recuadro de prueba visible 2 s */
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    pb_display_show_passkey(0);
+    bool audio_now = pb_audio_play_chime() == ESP_OK;
+    char buf[448];
+    pb_self_test_t t = {
+        .display_ok = s_display_ok,
+        .audio_ok = s_audio_ok && audio_now,
+        .ble_connected = pb_ble_is_connected(),
+        .wifi_connected = pb_wifi_is_connected(),
+        .battery = pb_power_battery_percent(),
+        .charging = pb_power_is_charging(),
+        .btn_up = s_btn_count[0],
+        .btn_down = s_btn_count[1],
+        .btn_mute = s_btn_count[2],
+        .reset_reason = reset_reason(),
+        .uptime_s = uptime_s(),
+        .free_heap = (uint32_t)esp_get_free_heap_size(),
+        .firmware = esp_app_get_description()->version,
+    };
+    if (pb_build_self_test(buf, sizeof(buf), &t) > 0) {
+        pb_ble_send(buf);
+    }
+}
+
 static void handle_message(const char *json)
 {
     pb_message_in_t msg;
@@ -181,6 +254,12 @@ static void handle_message(const char *json)
         break;
     case PB_MSG_PLAY_TEST:
         pb_audio_play_chime();
+        break;
+    case PB_MSG_TEST_EVENT:
+        handle_test_event(msg.test_id);
+        break;
+    case PB_MSG_SELF_TEST:
+        handle_self_test();
         break;
     default:
         break;
@@ -212,14 +291,17 @@ static void ui_task(void *arg)
         int64_t now = esp_timer_get_time();
         switch (pb_power_poll_button()) {
         case PB_BTN_VOL_UP:
+            s_btn_count[0]++;
             pb_audio_set_volume(pb_audio_get_volume() + 10);
             pb_settings_set_volume(pb_audio_get_volume());
             break;
         case PB_BTN_VOL_DOWN:
+            s_btn_count[1]++;
             pb_audio_set_volume(pb_audio_get_volume() - 10);
             pb_settings_set_volume(pb_audio_get_volume());
             break;
         case PB_BTN_MUTE:
+            s_btn_count[2]++;
             s_muted = !s_muted;
             break;
         case PB_BTN_MUTE_LONG:
@@ -290,8 +372,10 @@ void app_main(void)
 
     ESP_ERROR_CHECK(pb_power_init());
     pb_led_set(PB_LED_WARNING);
-    if (pb_display_hw_init() != ESP_OK) pb_diag_set_error("Error de pantalla");
-    if (pb_audio_init() != ESP_OK) pb_diag_set_error("Error de audio");
+    s_display_ok = pb_display_hw_init() == ESP_OK;
+    if (!s_display_ok) pb_diag_set_error("Error de pantalla");
+    s_audio_ok = pb_audio_init() == ESP_OK;
+    if (!s_audio_ok) pb_diag_set_error("Error de audio");
     pb_audio_set_volume(s_settings.volume);
 
     ESP_ERROR_CHECK(pb_wifi_init());
@@ -305,6 +389,9 @@ void app_main(void)
 
     /* Si esta versión llegó por OTA y arrancó bien, se confirma (si no, el bootloader revierte). */
     esp_ota_mark_app_valid_cancel_rollback();
-    ESP_LOGI(TAG, "%s iniciado. Firmware %s. Última secuencia %" PRIu32, name,
-             esp_app_get_description()->version, s_settings.last_sequence);
+    ESP_LOGI(TAG, "%s iniciado. Firmware %s. Última secuencia %" PRIu32 ". Último reinicio: %s", name,
+             esp_app_get_description()->version, s_settings.last_sequence, reset_reason());
+    if (strstr(reset_reason(), "WATCHDOG") != NULL || strcmp(reset_reason(), "PANIC") == 0) {
+        pb_diag_set_error("Se recupero de un reinicio por falla");
+    }
 }

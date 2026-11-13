@@ -44,6 +44,8 @@ typedef enum {
     PB_MSG_SET_VOLUME,
     PB_MSG_WIFI_CONFIG,
     PB_MSG_PLAY_TEST,
+    PB_MSG_TEST_EVENT, /* prueba de entrega completa: no es un pago */
+    PB_MSG_SELF_TEST,  /* autoprueba de componentes */
 } pb_msg_type_t;
 
 typedef struct {
@@ -51,6 +53,7 @@ typedef struct {
     union {
         pb_payment_event_t payment;
         int volume;
+        char test_id[PB_EVENT_ID_MAX];
         struct {
             char ssid[PB_SSID_MAX];
             char password[PB_PASS_MAX];
@@ -77,9 +80,27 @@ typedef struct {
     const char *audio_token;
     uint32_t last_sequence;
     const char *error; /* NULL si no hay error */
+    const char *reset_reason;
+    uint32_t uptime_s;
 } pb_status_t;
 
 int pb_build_status(char *buf, int buf_len, const pb_status_t *s);
+
+typedef struct {
+    bool display_ok;
+    bool audio_ok;
+    bool ble_connected;
+    bool wifi_connected;
+    int battery;          /* -1 si no hay lectura */
+    bool charging;
+    uint32_t btn_up, btn_down, btn_mute; /* pulsaciones desde el arranque */
+    const char *reset_reason;
+    uint32_t uptime_s;
+    uint32_t free_heap;
+    const char *firmware;
+} pb_self_test_t;
+
+int pb_build_self_test(char *buf, int buf_len, const pb_self_test_t *t);
 
 /* Devuelve false si la secuencia ya fue procesada (protección contra repetición). */
 bool pb_is_new_sequence(uint32_t last_processed, uint32_t incoming);

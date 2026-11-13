@@ -87,7 +87,7 @@ class HealthMonitor(private val context: Context, private val c: AppContainer) {
             HealthCheck(
                 "Entidades supervisadas",
                 if (supervised > 0) CheckStatus.OK else CheckStatus.ERROR,
-                if (supervised > 0) "$supervised aplicaciones" else "Ninguna entidad verificada todavía",
+                if (supervised > 0) "$supervised aplicaciones" else "Ninguna entidad con formatos verificados: aún no se anuncian pagos reales",
             ),
             HealthCheck(
                 "Restricciones de batería",

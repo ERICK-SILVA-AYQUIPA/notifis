@@ -120,6 +120,9 @@ interface AppSettingDao {
     @Query("SELECT * FROM app_settings")
     fun observeAll(): Flow<List<AppSettingEntity>>
 
+    @Query("SELECT value FROM app_settings WHERE `key` = :key")
+    suspend fun get(key: String): String?
+
     @Upsert
     suspend fun upsert(setting: AppSettingEntity)
 }
@@ -146,4 +149,69 @@ interface SeenFingerprintDao {
 
     @Query("DELETE FROM seen_fingerprints WHERE seenAt < :before")
     suspend fun deleteOlderThan(before: Long): Int
+}
+
+@Dao
+interface NotificationSampleDao {
+    @Insert
+    suspend fun insert(sample: NotificationSampleEntity): Long
+
+    @Query("SELECT * FROM notification_samples ORDER BY capturedAt DESC LIMIT :limit")
+    fun observeRecent(limit: Int): Flow<List<NotificationSampleEntity>>
+
+    @Query("SELECT * FROM notification_samples ORDER BY capturedAt DESC")
+    suspend fun all(): List<NotificationSampleEntity>
+
+    @Query("SELECT sourceId AS sourceId, COUNT(*) AS count FROM notification_samples WHERE sourceId IS NOT NULL GROUP BY sourceId")
+    fun observeCountsBySource(): Flow<List<SourceCount>>
+
+    @Query("DELETE FROM notification_samples WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    @Query("DELETE FROM notification_samples")
+    suspend fun deleteAll()
+
+    @Query("DELETE FROM notification_samples WHERE capturedAt < :before")
+    suspend fun deleteOlderThan(before: Long): Int
+}
+
+data class SourceCount(val sourceId: String, val count: Int)
+
+@Dao
+interface PackageAssignmentDao {
+    @Query("SELECT * FROM package_assignments")
+    fun observeAll(): Flow<List<PackageAssignmentEntity>>
+
+    @Upsert
+    suspend fun upsert(assignment: PackageAssignmentEntity)
+
+    @Query("DELETE FROM package_assignments WHERE packageName = :packageName")
+    suspend fun delete(packageName: String)
+}
+
+@Dao
+interface SourceStatusDao {
+    @Query("SELECT * FROM source_status")
+    fun observeAll(): Flow<List<SourceStatusEntity>>
+
+    @Query("SELECT * FROM source_status WHERE sourceId = :sourceId")
+    suspend fun get(sourceId: String): SourceStatusEntity?
+
+    @Upsert
+    suspend fun upsert(status: SourceStatusEntity)
+}
+
+@Dao
+interface PhysicalTestDao {
+    @Query("SELECT * FROM physical_test_results")
+    fun observeAll(): Flow<List<PhysicalTestResultEntity>>
+
+    @Query("SELECT * FROM physical_test_results")
+    suspend fun all(): List<PhysicalTestResultEntity>
+
+    @Upsert
+    suspend fun upsert(result: PhysicalTestResultEntity)
+
+    @Query("DELETE FROM physical_test_results")
+    suspend fun deleteAll()
 }

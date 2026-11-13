@@ -51,6 +51,12 @@
     </application>
 
     <queries>
+        <!-- Apps con ícono de inicio (incluye apps bancarias): para leer su nombre, versión,
+             instalador y huella de firma al asignarlas a una entidad. Sin QUERY_ALL_PACKAGES. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>

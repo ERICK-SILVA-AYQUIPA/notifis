@@ -156,11 +156,65 @@ static int test_battery(void)
     return 0;
 }
 
+static char *read_fixture(const char *name)
+{
+    static char buf[2048];
+    char path[512];
+    snprintf(path, sizeof(path), "%s/%s", FIXTURES_DIR, name);
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) return NULL;
+    size_t n = fread(buf, 1, sizeof(buf) - 1, f);
+    fclose(f);
+    buf[n] = '\0';
+    return buf;
+}
+
+static int test_contract_with_android(void)
+{
+    /* Archivos generados/validados por las pruebas Kotlin (EndToEndIntegrationTest). */
+    char *json = read_fixture("payment_event.json");
+    CHECK(json != NULL);
+    pb_payment_event_t e;
+    CHECK(pb_parse_payment_event(json, &e) == PB_PARSE_OK);
+    CHECK(strcmp(e.event_id, "evt_000001") == 0);
+    CHECK(e.sequence == 1);
+    CHECK(e.amount_cents == 125050);
+    CHECK(strcmp(e.currency, "PEN") == 0);
+    CHECK(strcmp(e.time_hhmm, "15:30") == 0);
+    char folded[PB_SENDER_MAX];
+    pb_ascii_fold(e.sender, folded, sizeof(folded));
+    CHECK(strcmp(folded, "Jose Nunez") == 0);
+
+    json = read_fixture("test_event.json");
+    CHECK(json != NULL);
+    pb_message_in_t m;
+    CHECK(pb_parse_message(json, &m) == PB_PARSE_OK);
+    CHECK(m.type == PB_MSG_TEST_EVENT);
+    CHECK(strcmp(m.test_id, "test_1731443400000") == 0);
+    return 0;
+}
+
+static int test_self_test_report(void)
+{
+    char buf[512];
+    pb_self_test_t t = {.display_ok = true, .audio_ok = false, .battery = -1, .btn_up = 2, .reset_reason = "TASK_WATCHDOG",
+                        .uptime_s = 5, .free_heap = 1000, .firmware = "1.1"};
+    CHECK(pb_build_self_test(buf, sizeof(buf), &t) > 0);
+    CHECK(strstr(buf, "\"audio\":false") != NULL);
+    CHECK(strstr(buf, "\"volUp\":2") != NULL);
+    CHECK(strstr(buf, "TASK_WATCHDOG") != NULL);
+    pb_message_in_t m;
+    CHECK(pb_parse_message("{\"type\":\"SELF_TEST\"}", &m) == PB_PARSE_OK && m.type == PB_MSG_SELF_TEST);
+    CHECK(pb_parse_message("{\"type\":\"TEST_EVENT\"}", &m) == PB_PARSE_MISSING_FIELD);
+    return 0;
+}
+
 int main(void)
 {
     int failed = test_parse_event() + test_missing_optional_fields() + test_invalid_messages() +
                  test_ack_and_sequence() + test_display_states() +
-                 test_messages() + test_text() + test_status() + test_wav() + test_battery();
+                 test_messages() + test_text() + test_status() + test_wav() + test_battery() +
+                 test_contract_with_android() + test_self_test_report();
     printf("%d comprobaciones correctas, %d pruebas fallidas\n", s_passed, failed);
     return failed ? 1 : 0;
 }

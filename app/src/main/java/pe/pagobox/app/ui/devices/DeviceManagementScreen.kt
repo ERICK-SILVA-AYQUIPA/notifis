@@ -40,6 +40,8 @@ import kotlinx.coroutines.launch
 import pe.pagobox.app.AppContainer
 import pe.pagobox.app.data.local.DeviceEntity
 import pe.pagobox.app.device.BleDeviceLink
+import pe.pagobox.app.device.DeviceProtocol
+import pe.pagobox.app.device.EndToEndResult
 import pe.pagobox.app.device.FoundDevice
 import pe.pagobox.app.ui.components.LabeledValue
 import pe.pagobox.app.ui.components.Pill
@@ -116,6 +118,7 @@ fun DeviceManagementScreen(container: AppContainer) {
                 onFirmware = { firmwarePicker.launch(arrayOf("application/octet-stream", "*/*")) },
                 onForget = { scope.launch { container.devices.forget(device) } },
             )
+            if (linkState == BleDeviceLink.State.READY) DeviceTestsCard(container)
         } else {
             SectionCard("Vincular equipo") {
                 Text(
@@ -162,6 +165,62 @@ fun DeviceManagementScreen(container: AppContainer) {
                 }
             },
         )
+    }
+}
+
+/** Fase 7: autoprueba de componentes y prueba de extremo a extremo con TEST_EVENT (no es un pago). */
+@Composable
+private fun DeviceTestsCard(container: AppContainer) {
+    val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var running by remember { mutableStateOf(false) }
+    var selfTest by remember { mutableStateOf<DeviceProtocol.Incoming.SelfTestResult?>(null) }
+    var selfTestMissing by remember { mutableStateOf(false) }
+    var e2e by remember { mutableStateOf<EndToEndResult?>(null) }
+    SectionCard("Pruebas del equipo") {
+        Text(
+            "La autoprueba muestra un recuadro en la pantalla y reproduce un tono: confirme que los vio y oyó. " +
+                "La prueba de extremo a extremo envía un evento marcado «PRUEBA» que no es un pago.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(enabled = !running, onClick = {
+                running = true
+                scope.launch {
+                    val r = container.devices.selfTest()
+                    selfTest = r
+                    selfTestMissing = r == null
+                    running = false
+                }
+            }) { Text("Autoprueba") }
+            OutlinedButton(enabled = !running, onClick = {
+                running = true
+                scope.launch {
+                    e2e = container.devices.endToEndTest({ container.announcements.synthesizeTest(it) }, context.cacheDir)
+                    running = false
+                }
+            }) { Text("Extremo a extremo") }
+        }
+        if (running) Text("Ejecutando…")
+        if (selfTestMissing) Text("El equipo no respondió a la autoprueba.", color = StatusError)
+        selfTest?.let { t ->
+            LabeledValue("Pantalla", if (t.display) "Inicializada" else "FALLA")
+            LabeledValue("Audio", if (t.audio) "Inicializado" else "FALLA")
+            LabeledValue("Bluetooth", if (t.ble) "Conectado" else "FALLA")
+            LabeledValue("Wi-Fi", if (t.wifi) "Conectado" else "Sin conexión")
+            LabeledValue("Batería", t.battery?.let { "$it%" + if (t.charging) " (cargando)" else "" } ?: "Sin sensor")
+            LabeledValue("Botones pulsados", t.buttons.entries.joinToString { "${it.key}: ${it.value}" })
+            LabeledValue("Último reinicio", t.resetReason ?: "-")
+            LabeledValue("Encendido hace", "${t.uptimeS / 60} min")
+            LabeledValue("Memoria libre", "${t.freeHeap / 1024} KB")
+        }
+        e2e?.let { r ->
+            Pill(if (r.passed) "Prueba aprobada" else "Prueba fallida", if (r.passed) StatusOk else StatusError)
+            LabeledValue("Recepción (ACK)", r.receivedMs?.let { "$it ms" } ?: "-")
+            LabeledValue("Reproducción (ACK)", r.playedMs?.let { "$it ms" } ?: "-")
+            LabeledValue("Audio por Wi-Fi", if (r.audioUploaded) "Enviado" else "No enviado (tono de aviso)")
+            r.error?.let { Text(it, color = StatusError) }
+        }
     }
 }
 

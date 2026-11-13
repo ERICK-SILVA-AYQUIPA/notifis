@@ -4,6 +4,7 @@ import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import pe.pagobox.app.announce.AnnouncementCoordinator
 import pe.pagobox.app.data.local.PagoboxDatabase
 import pe.pagobox.app.data.preferences.SettingsRepository
@@ -13,6 +14,8 @@ import pe.pagobox.app.device.BleDeviceLink
 import pe.pagobox.app.device.DeviceAudioUploader
 import pe.pagobox.app.device.DeviceManager
 import pe.pagobox.app.diagnostics.HealthMonitor
+import pe.pagobox.app.diagnostics.NotificationDiagnostics
+import pe.pagobox.app.diagnostics.PackageInspector
 import pe.pagobox.app.payment.PaymentProcessor
 import pe.pagobox.app.voice.AndroidVoiceEngine
 
@@ -45,9 +48,17 @@ class AppContainer(context: Context) {
         scope = scope,
     )
 
+    val packageInspector = PackageInspector(context)
+    val notificationDiagnostics = NotificationDiagnostics(database.notificationSamples())
+
     val processor = PaymentProcessor(
         repository = payments,
-        sourceDao = database.paymentSources(),
+        assignmentDao = database.packageAssignments(),
+        statusDao = database.sourceStatus(),
+        settings = settings,
+        diagnostics = notificationDiagnostics,
+        inspector = packageInspector,
+        lastAckedSequence = { devices.lastAckedSequence() },
         log = log,
         scope = scope,
         onIncome = { announcements.notifyNewIncome() },
@@ -58,7 +69,15 @@ class AppContainer(context: Context) {
 
     val health = HealthMonitor(context, this)
 
+    /** Fin del modo diagnóstico (en memoria, para que el lector no consulte la base en cada notificación). */
+    @Volatile private var diagnosticUntil: Long = 0L
+
+    fun diagnosticModeActive(): Boolean = System.currentTimeMillis() < diagnosticUntil
+
     fun start() {
+        scope.launch {
+            settings.settings.collect { diagnosticUntil = it.diagnosticUntil?.toEpochMilli() ?: 0L }
+        }
         processor.start()
         devices.start()
         announcements.start()

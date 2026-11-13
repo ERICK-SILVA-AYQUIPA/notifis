@@ -13,7 +13,11 @@ import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import androidx.core.content.ContextCompat
 import android.os.Build
 import android.os.ParcelUuid
 import kotlinx.coroutines.CompletableDeferred
@@ -150,16 +154,52 @@ class BleDeviceLink(context: Context, private val log: DiagnosticsLogger) {
         true
     }
 
+    /** Continúa la conexión cuando termina la vinculación (o informa si fue rechazada). */
+    private val bondReceiver = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, intent: Intent) {
+            val device: BluetoothDevice? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+            }
+            val g = gatt ?: return
+            if (device?.address != g.device.address) return
+            when (intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.ERROR)) {
+                BluetoothDevice.BOND_BONDED -> {
+                    log.info("BLE", "Vinculación completada; negociando MTU")
+                    g.requestMtu(REQUESTED_MTU)
+                }
+                BluetoothDevice.BOND_NONE -> if (_state.value == State.BONDING) {
+                    log.error("BLE", "Vinculación rechazada o clave incorrecta")
+                    _state.value = State.DISCONNECTED
+                }
+            }
+        }
+    }
+
+    init {
+        ContextCompat.registerReceiver(
+            appContext,
+            bondReceiver,
+            IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+    }
+
     private val callback = object : BluetoothGattCallback() {
         override fun onConnectionStateChange(g: BluetoothGatt, status: Int, newState: Int) {
             when (newState) {
                 BluetoothProfile.STATE_CONNECTED -> {
-                    log.info("BLE", "Conectado; negociando MTU")
-                    if (g.device.bondState == BluetoothDevice.BOND_NONE) {
+                    // E8: no se negocia el MTU mientras el enlace se cifra; se espera a BOND_BONDED.
+                    if (g.device.bondState == BluetoothDevice.BOND_BONDED) {
+                        log.info("BLE", "Conectado; negociando MTU")
+                        g.requestMtu(REQUESTED_MTU)
+                    } else {
                         _state.value = State.BONDING
-                        g.device.createBond()
+                        log.info("BLE", "Conectado; esperando vinculación con clave")
+                        if (g.device.bondState == BluetoothDevice.BOND_NONE) g.device.createBond()
                     }
-                    g.requestMtu(REQUESTED_MTU)
                 }
                 BluetoothProfile.STATE_DISCONNECTED -> {
                     rx = null

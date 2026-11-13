@@ -39,14 +39,27 @@ enum class VerificationStatus { DETECTED, VERIFIED }
 
 enum class AnnouncementStatus { PENDING, DELIVERED, ANNOUNCED, FAILED, SKIPPED }
 
-/** Estado real de compatibilidad de una entidad: nunca se asume, se comprueba. */
-enum class CompatibilityStatus {
-    /** No hay reglas basadas en notificaciones reales. No se procesa. */
-    NOT_IMPLEMENTED,
-    /** Hay reglas, pero aún no superaron las pruebas específicas. */
-    IN_TESTING,
-    /** Superó las pruebas específicas para un modelo/versión documentados. */
-    VERIFIED,
+/**
+ * Estado de compatibilidad de una entidad (registro individual por entidad).
+ * Nunca se asume: cada avance requiere evidencia (ver docs/compatibilidad-bancaria.md).
+ */
+enum class CompatibilityStatus(val label: String, val processesPayments: Boolean) {
+    /** No se conoce el paquete oficial de la app en este celular. */
+    NOT_CONFIGURED("Sin configurar", false),
+    /** Paquete identificado, pero no hay formatos reales: se recopilan muestras, no se anuncia. */
+    WAITING_FOR_SAMPLE("Esperando muestras", false),
+    /** Hay formatos escritos a partir de muestras reales anonimizadas. */
+    CONFIGURED("Configurado", true),
+    /** Los formatos superan las pruebas unitarias con sus muestras. */
+    LAB_TESTED("Probado en laboratorio", true),
+    /** Probado en al menos un celular físico, con evidencia documentada. */
+    DEVICE_TESTED("Probado en celular", true),
+    /** Superó el protocolo completo de pruebas reales documentadas. */
+    VERIFIED_COMPATIBLE("Compatible verificado", true),
+    /** La app empezó a enviar formatos desconocidos: se sigue procesando solo lo reconocido. */
+    FORMAT_CHANGED("Formato cambiado", true),
+    /** Desactivado temporalmente (manual o por incidencia). */
+    TEMPORARILY_UNAVAILABLE("No disponible temporalmente", false),
 }
 
 /** Política de confiabilidad (sección 7): estados que la app comunica al comerciante. */

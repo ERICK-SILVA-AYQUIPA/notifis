@@ -18,6 +18,7 @@
 #include "esp_ota_ops.h"
 #include "esp_random.h"
 #include "esp_system.h"
+#include "esp_timer.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -36,6 +37,12 @@ static volatile bool s_enabled;
 static char s_ip[16];
 static char s_token[33];
 static int s_retry;
+static esp_timer_handle_t s_retry_timer;
+
+static void retry_connect(void *arg)
+{
+    if (s_enabled) esp_wifi_connect();
+}
 
 static void on_wifi_event(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
@@ -50,8 +57,9 @@ static void on_wifi_event(void *arg, esp_event_base_t base, int32_t id, void *da
             if (delay_ms > 30000) delay_ms = 30000;
             s_retry++;
             ESP_LOGW(TAG, "Wi-Fi desconectado; reintento en %d ms", delay_ms);
-            vTaskDelay(pdMS_TO_TICKS(delay_ms > 2000 ? 2000 : delay_ms));
-            esp_wifi_connect();
+            /* Temporizador: no se bloquea el bucle de eventos del sistema. */
+            esp_timer_stop(s_retry_timer);
+            esp_timer_start_once(s_retry_timer, (uint64_t)delay_ms * 1000);
         }
     } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t *e = data;
@@ -147,6 +155,8 @@ static esp_err_t ota_post(httpd_req_t *req)
 esp_err_t pb_wifi_init(void)
 {
     s_audio_q = xQueueCreate(2, sizeof(pb_audio_clip_t));
+    const esp_timer_create_args_t targs = {.callback = retry_connect, .name = "wifi_retry"};
+    ESP_ERROR_CHECK(esp_timer_create(&targs, &s_retry_timer));
     for (int i = 0; i < 16; i++) {
         snprintf(s_token + i * 2, 3, "%02x", (unsigned)(esp_random() & 0xFF));
     }

@@ -14,3 +14,5 @@ add_executable(pagobox_host_tests
 target_include_directories(pagobox_host_tests PRIVATE ../main ../main/display ${CJSON_DIR})
 target_compile_options(pagobox_host_tests PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(pagobox_host_tests m)
+# Contrato compartido con las pruebas de Android.
+target_compile_definitions(pagobox_host_tests PRIVATE FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../protocol-fixtures")

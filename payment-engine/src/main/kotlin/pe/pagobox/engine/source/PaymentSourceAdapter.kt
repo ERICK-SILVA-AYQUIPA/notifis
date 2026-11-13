@@ -13,11 +13,14 @@ data class ParsedPayment(
     val money: Money?,
     val senderName: String?,
     val eventTimestamp: Instant,
+    /** Identificador del formato que reconoció la notificación (trazabilidad). */
+    val formatId: String = "",
 )
 
 sealed interface ParseResult {
     data class Parsed(val payment: ParsedPayment) : ParseResult
-    data class NotRecognized(val reason: String) : ParseResult
+    /** La notificación es de la entidad, pero su formato no está registrado. */
+    data class UnknownFormat(val reason: String) : ParseResult
 }
 
 /**
@@ -26,7 +29,11 @@ sealed interface ParseResult {
  */
 interface PaymentSourceAdapter {
     val sourceId: SourceId
-    val packageNames: Set<String>
-    val compatibility: CompatibilityStatus
+    /** Paquetes oficiales conocidos en código. Vacío si aún no se confirmaron con evidencia. */
+    val officialPackages: Set<String>
+    /** Formatos escritos a partir de muestras reales anonimizadas. */
+    val formats: List<NotificationFormat>
+    /** Estado declarado en código según la evidencia disponible (ver CompatibilityRegistry). */
+    val declaredStatus: CompatibilityStatus
     fun parse(notification: RawNotification): ParseResult
 }

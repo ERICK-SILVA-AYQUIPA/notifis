@@ -40,6 +40,8 @@ fun SettingsScreen(
     onVoice: () -> Unit,
     onDiagnostics: () -> Unit,
     onBusiness: () -> Unit,
+    onNotificationDiagnostics: () -> Unit,
+    onPhysicalTests: () -> Unit,
 ) {
     val settings by container.settings.settings.collectAsStateWithLifecycle(initialValue = AppSettings())
     val scope = rememberCoroutineScope()
@@ -51,9 +53,11 @@ fun SettingsScreen(
     ) {
         SectionCard {
             MenuItem("Negocio", "Nombre y datos del establecimiento", onBusiness)
-            MenuItem("Bancos", "Entidades compatibles", onBanks)
+            MenuItem("Bancos", "Estado de compatibilidad por entidad", onBanks)
             MenuItem("Voz", "Voces, velocidad y frases", onVoice)
-            MenuItem("Diagnóstico", "Pruebas de funcionamiento", onDiagnostics)
+            MenuItem("Diagnóstico", "Estado del sistema y registro de eventos", onDiagnostics)
+            MenuItem("Diagnóstico de notificaciones", "Identificar apps bancarias y guardar muestras anonimizadas", onNotificationDiagnostics)
+            MenuItem("Pruebas físicas", "Protocolo de pruebas en celular y equipo reales", onPhysicalTests)
         }
         SectionCard("Dónde se anuncian los pagos") {
             AnnouncementOutput.entries.forEach { o ->

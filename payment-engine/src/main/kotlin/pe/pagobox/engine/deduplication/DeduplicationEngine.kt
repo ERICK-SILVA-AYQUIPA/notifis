@@ -20,9 +20,14 @@ class InMemorySeenFingerprintStore : SeenFingerprintStore {
 }
 
 /**
- * Evita anuncios duplicados cuando Android re-publica o actualiza la misma notificación.
- * La huella combina paquete y texto normalizado: dos pagos distintos del mismo monto y
- * remitente suelen diferir en el texto (hora, código), por eso no se usa solo el monto.
+ * Evita anuncios duplicados cuando Android vuelve a publicar o actualiza la misma notificación.
+ *
+ * La huella combina paquete, clave de Android, marca de tiempo propia de la notificación
+ * (`when`) y texto. Así:
+ * - una actualización de la misma notificación (misma clave, mismo `when`, mismo texto) es duplicado;
+ * - dos pagos reales con el mismo texto (mismo remitente y monto) tienen distinto `when`
+ *   y NO se descartan.
+ * Si la app de origen no informa `when`, se usa solo el texto dentro de la ventana.
  */
 class DeduplicationEngine(
     private val store: SeenFingerprintStore,
@@ -30,14 +35,17 @@ class DeduplicationEngine(
 ) {
     fun fingerprint(raw: RawNotification): String {
         val normalized = raw.fullText.lowercase().replace(Regex("\\s+"), " ").trim()
-        return sha256("${raw.packageName}|$normalized")
+        val identity = listOfNotNull(raw.notificationKey, raw.whenMillis?.takeIf { it > 0 }?.toString()).joinToString("|")
+        return sha256("${raw.packageName}|$identity|$normalized")
     }
 
     /** Devuelve true si el evento es nuevo (y lo registra); false si es duplicado. */
     fun registerIfNew(raw: RawNotification, now: Instant): Boolean {
         val fp = fingerprint(raw)
         val last = store.lastSeen(fp)
-        if (last != null && Duration.between(last, now) <= window) return false
+        val hasOwnTimestamp = raw.whenMillis != null && raw.whenMillis > 0
+        // Con `when` propio, la huella identifica un evento único: se descarta siempre que se repita.
+        if (last != null && (hasOwnTimestamp || Duration.between(last, now) <= window)) return false
         store.markSeen(fp, now)
         return true
     }

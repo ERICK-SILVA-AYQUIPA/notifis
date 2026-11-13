@@ -28,6 +28,12 @@ object DeviceMessages {
         return toJson(fields)
     }
 
+    /**
+     * Prueba de entrega completa (fase 7): recorre BLE, ACK, audio y reproducción, pero el
+     * equipo la muestra como «PRUEBA» y no la registra como pago ni avanza la secuencia.
+     */
+    fun testEvent(testId: String): String = toJson(linkedMapOf("type" to "TEST_EVENT", "testId" to testId))
+
     private class RawJson(val value: String)
 
     private fun toJson(fields: Map<String, Any?>): String =

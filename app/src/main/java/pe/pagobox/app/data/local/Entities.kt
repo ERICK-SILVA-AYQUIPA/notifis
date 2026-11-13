@@ -120,3 +120,69 @@ data class SeenFingerprintEntity(
     @PrimaryKey val fingerprint: String,
     val seenAt: Long,
 )
+
+/**
+ * Muestra ANONIMIZADA de una notificación (diagnóstico o formato desconocido).
+ * Nunca se guarda el texto original. Se puede borrar desde la app.
+ */
+@Entity(tableName = "notification_samples", indices = [Index("capturedAt"), Index("packageName")])
+data class NotificationSampleEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val capturedAt: Long,
+    val packageName: String,
+    val appLabel: String?,
+    val appVersion: String?,
+    /** Entidad asociada al paquete, si existe. */
+    val sourceId: String?,
+    val category: String?,
+    val titleAnon: String?,
+    val textAnon: String?,
+    val bigTextAnon: String?,
+    val linesAnon: String?,
+    val subTextAnon: String?,
+    /** Solo los nombres de los extras disponibles, nunca sus valores. */
+    val extraKeys: String,
+    val postedAt: Long,
+    val whenMillis: Long?,
+    val listenerConnected: Boolean,
+    /** DIAGNOSTIC, UNKNOWN_FORMAT o WAITING_FOR_SAMPLE. */
+    val kind: String,
+    val processingResult: String,
+)
+
+/** Paquete de Android asignado a una entidad desde el diagnóstico, con su huella de firma. */
+@Entity(tableName = "package_assignments")
+data class PackageAssignmentEntity(
+    @PrimaryKey val packageName: String,
+    val sourceId: String,
+    val appLabel: String?,
+    val appVersion: String?,
+    val installer: String?,
+    /** SHA-256 del certificado de firma: si cambia, la app deja de confiar en ese paquete. */
+    val signingSha256: String?,
+    val assignedAt: Long,
+)
+
+/** Estado en tiempo de ejecución de cada entidad (FORMAT_CHANGED / TEMPORARILY_UNAVAILABLE). */
+@Entity(tableName = "source_status")
+data class SourceStatusEntity(
+    @PrimaryKey val sourceId: String,
+    /** NONE, FORMAT_CHANGED o TEMPORARILY_UNAVAILABLE. */
+    val override: String,
+    val consecutiveUnknown: Int,
+    val reason: String?,
+    val updatedAt: Long,
+)
+
+/** Resultado de una prueba física en un celular real (fase 6). */
+@Entity(tableName = "physical_test_results")
+data class PhysicalTestResultEntity(
+    @PrimaryKey val testId: String,
+    /** NOT_RUN, PASSED, FAILED o BLOCKED. */
+    val result: String,
+    val notes: String,
+    val deviceModel: String,
+    val androidVersion: String,
+    val appVersion: String,
+    val testedAt: Long,
+)

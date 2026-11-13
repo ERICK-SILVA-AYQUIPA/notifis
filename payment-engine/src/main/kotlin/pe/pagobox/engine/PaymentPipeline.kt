@@ -3,6 +3,7 @@ package pe.pagobox.engine
 import pe.pagobox.domain.model.AnnouncementStatus
 import pe.pagobox.domain.model.EventState
 import pe.pagobox.domain.model.PaymentEvent
+import pe.pagobox.domain.model.SourceId
 import pe.pagobox.domain.model.VerificationStatus
 import pe.pagobox.engine.classifier.PaymentClassifier
 import pe.pagobox.engine.deduplication.DeduplicationEngine
@@ -12,10 +13,14 @@ import pe.pagobox.engine.source.SourcePackageRegistry
 import java.time.Clock
 
 sealed interface PipelineResult {
-    /** Paquete no supervisado: se ignora sin registrar nada. */
+    /** Paquete no asociado a ninguna entidad: se ignora sin registrar nada. */
     data object Ignored : PipelineResult
+    /** Paquete de una entidad que aún no procesa pagos (sin formatos o desactivada): solo se toma muestra. */
+    data class NotProcessed(val source: SourceId, val reason: String) : PipelineResult
+    /** Notificación de la entidad con un formato no registrado: se guarda muestra anonimizada. */
+    data class UnknownFormat(val source: SourceId, val reason: String) : PipelineResult
     data class Duplicate(val fingerprint: String) : PipelineResult
-    data class Rejected(val reason: String) : PipelineResult
+    data class Rejected(val source: SourceId, val reason: String) : PipelineResult
     /** Evento creado (INCOME_CANDIDATE o PENDING_REVIEW). Solo INCOME_CANDIDATE se anuncia. */
     data class Created(val event: PaymentEvent, val reason: String) : PipelineResult
 }
@@ -33,11 +38,13 @@ class PaymentPipeline(
     private val newEventId: (Long) -> String = { "evt_%06d".format(it) },
 ) {
     fun process(raw: RawNotification): PipelineResult {
-        val adapter = registry.adapterFor(raw.packageName) ?: return PipelineResult.Ignored
+        val source = registry.sourceFor(raw.packageName) ?: return PipelineResult.Ignored
+        val adapter = registry.adapterFor(raw.packageName)
+            ?: return PipelineResult.NotProcessed(source, "Estado: ${registry.statuses[source]?.label}")
         val now = clock.instant()
 
         val parsed = when (val result = adapter.parse(raw)) {
-            is ParseResult.NotRecognized -> return PipelineResult.Rejected(result.reason)
+            is ParseResult.UnknownFormat -> return PipelineResult.UnknownFormat(source, result.reason)
             is ParseResult.Parsed -> result.payment
         }
 
@@ -45,9 +52,9 @@ class PaymentPipeline(
             return PipelineResult.Duplicate(deduplication.fingerprint(raw))
         }
 
-        val classification = classifier.classify(parsed, now)
+        val classification = classifier.classify(parsed, raw.fullText, now)
         if (classification.state == EventState.REJECTED) {
-            return PipelineResult.Rejected(classification.reason)
+            return PipelineResult.Rejected(source, classification.reason)
         }
 
         val sequence = nextSequence()

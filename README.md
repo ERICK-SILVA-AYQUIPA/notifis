@@ -23,14 +23,16 @@ ESP32 con pantalla y parlante que los anuncia en voz alta.
 
 | Documento | Contenido |
 |---|---|
+| [Auditoría](docs/auditoria.md) | Estado real del repositorio, errores encontrados y corregidos |
 | [Especificación maestra](docs/especificacion-maestra.md) | Requisitos del producto |
 | [Protocolo](docs/protocolo.md) | BLE GATT, mensajes, ACK, audio y OTA |
 | [Hardware](docs/hardware.md) | Componentes, conexiones, botones y LED |
 | [Manual de instalación](docs/manual-instalacion.md) | App, firmware y vinculación |
 | [Manual de usuario](docs/manual-usuario.md) | Uso diario de la app |
 | [Informe de pruebas](docs/informe-pruebas.md) | Pruebas automáticas y pendientes |
-| [Compatibilidad bancaria](docs/compatibilidad-bancaria.md) | Entidades realmente compatibles |
-| [Limitaciones conocidas](docs/limitaciones.md) | Lo que el sistema aún no hace |
+| [Compatibilidad bancaria](docs/compatibilidad-bancaria.md) | Estados por entidad y cómo activarlas con muestras reales |
+| [Guía de pruebas físicas](docs/guia-pruebas-fisicas.md) | Protocolo en celulares y equipo reales |
+| [Limitaciones y pendientes](docs/limitaciones.md) | Lo que el sistema aún no hace y problemas pendientes |
 | [Actualización y recuperación](docs/actualizacion-recuperacion.md) | OTA, migraciones y solución de problemas |
 
 ## Estado actual
@@ -41,9 +43,11 @@ ESP32 con pantalla y parlante que los anuncia en voz alta.
 - ✅ Firmware del equipo: BLE con vinculación cifrada, pantalla, voz por Wi-Fi local, tono de respaldo, batería,
   botones, LED, OTA con reversión y watchdog.
 - ✅ Compilación y pruebas automáticas en cada cambio (APK y firmware descargables desde GitHub Actions).
-- ⏳ **Ninguna entidad está habilitada todavía.** Las reglas de Yape, Plin y bancos se escriben a partir de
-  notificaciones reales recopiladas con autorización (fase 1).
-- ⏳ Pruebas en celulares reales y en el prototipo físico (ver [informe de pruebas](docs/informe-pruebas.md)).
+- ✅ Diagnóstico de notificaciones con anonimización, adaptadores independientes por entidad y registro de
+  compatibilidad con 8 estados respaldados por evidencia.
+- ⏳ **Ninguna entidad anuncia pagos todavía.** Las 7 entidades están en «Esperando muestras»: sus formatos se
+  escriben con notificaciones reales anonimizadas (ver [compatibilidad bancaria](docs/compatibilidad-bancaria.md)).
+- ⏳ Pruebas en celulares reales y en el prototipo físico (ver [guía de pruebas físicas](docs/guia-pruebas-fisicas.md)).
 
 ## Compilar
 

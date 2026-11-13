@@ -30,6 +30,20 @@ object DeviceProtocol {
             val lastSequence: Long,
             val error: String?,
         ) : Incoming
+        /** Informe de autoprueba. Pantalla y audio indican inicialización correcta; el técnico confirma lo que ve y oye. */
+        data class SelfTestResult(
+            val firmware: String?,
+            val display: Boolean,
+            val audio: Boolean,
+            val ble: Boolean,
+            val wifi: Boolean,
+            val battery: Int?,
+            val charging: Boolean,
+            val buttons: Map<String, Int>,
+            val resetReason: String?,
+            val uptimeS: Long,
+            val freeHeap: Long,
+        ) : Incoming
         data class Unknown(val raw: String) : Incoming
     }
 
@@ -48,6 +62,22 @@ object DeviceProtocol {
                 lastSequence = o.optLong("lastSequence", 0),
                 error = o.optStringOrNull("error"),
             )
+            "SELF_TEST_RESULT" -> {
+                val b = o.optJSONObject("buttons")
+                Incoming.SelfTestResult(
+                    firmware = o.optStringOrNull("firmware"),
+                    display = o.optBoolean("display", false),
+                    audio = o.optBoolean("audio", false),
+                    ble = o.optBoolean("ble", false),
+                    wifi = o.optBoolean("wifi", false),
+                    battery = o.optIntOrNull("battery"),
+                    charging = o.optBoolean("charging", false),
+                    buttons = listOf("volUp", "volDown", "mute").associateWith { b?.optInt(it, 0) ?: 0 },
+                    resetReason = o.optStringOrNull("resetReason"),
+                    uptimeS = o.optLong("uptimeS", 0),
+                    freeHeap = o.optLong("freeHeap", 0),
+                )
+            }
             else -> Incoming.Unknown(line)
         }
     }.getOrElse { Incoming.Unknown(line) }
@@ -59,6 +89,8 @@ object DeviceProtocol {
 
     fun wifiConfig(ssid: String, password: String): String =
         JSONObject().put("type", "WIFI_CONFIG").put("ssid", ssid).put("password", password).toString()
+
+    fun selfTest(): String = JSONObject().put("type", "SELF_TEST").toString()
 
     fun testAnnouncement(): String = JSONObject().put("type", "PLAY_TEST").toString()
 

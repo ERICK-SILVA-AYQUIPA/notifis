@@ -21,6 +21,17 @@ sealed interface DeliveryResult {
     data class Failed(val reason: String) : DeliveryResult
 }
 
+/** Resultado de la prueba de extremo a extremo (sin pago real: el equipo muestra «PRUEBA»). */
+data class EndToEndResult(
+    val testId: String,
+    val receivedMs: Long?,
+    val playedMs: Long?,
+    val audioUploaded: Boolean,
+    val error: String?,
+) {
+    val passed: Boolean get() = error == null && receivedMs != null && playedMs != null
+}
+
 /**
  * Administra el equipo vinculado: reconexión, estado (batería, volumen, Wi-Fi) y
  * entrega de eventos con ACK y audio.
@@ -60,6 +71,14 @@ class DeviceManager(
             }
         }
         scope.launch {
+            link.incoming.filterIsInstance<DeviceProtocol.Incoming.Ack>().collect { ack ->
+                val current = dao.current() ?: return@collect
+                if (ack.sequence > current.lastAckedSequence) {
+                    dao.upsert(current.copy(lastAckedSequence = ack.sequence, lastSeenAt = System.currentTimeMillis()))
+                }
+            }
+        }
+        scope.launch {
             link.state.collect { st ->
                 if (st == BleDeviceLink.State.READY) link.send(DeviceProtocol.statusRequest())
             }
@@ -93,6 +112,9 @@ class DeviceManager(
     }
 
     suspend fun hasDevice(): Boolean = dao.current() != null
+
+    /** Última secuencia que el equipo confirmó; el teléfono nunca crea eventos por debajo de ella. */
+    suspend fun lastAckedSequence(): Long = dao.current()?.lastAckedSequence ?: 0L
 
     val isReady: Boolean get() = link.state.value == BleDeviceLink.State.READY
 
@@ -146,6 +168,65 @@ class DeviceManager(
         return if (played.await() != null) DeliveryResult.Played else DeliveryResult.Failed("El equipo no confirmó la reproducción")
     }
 
+    /** Pide la autoprueba de componentes. Null si el equipo no responde. */
+    suspend fun selfTest(): DeviceProtocol.Incoming.SelfTestResult? {
+        if (!isReady) return null
+        val result = scope.async(start = CoroutineStart.UNDISPATCHED) {
+            withTimeoutOrNull(SELF_TEST_TIMEOUT_MS) {
+                link.incoming.filterIsInstance<DeviceProtocol.Incoming.SelfTestResult>().first()
+            }
+        }
+        if (!link.send(DeviceProtocol.selfTest())) {
+            result.cancel()
+            return null
+        }
+        return result.await().also {
+            log.info("Equipo", if (it != null) "Autoprueba: pantalla=${it.display} audio=${it.audio} wifi=${it.wifi} reinicio=${it.resetReason}" else "Autoprueba sin respuesta")
+        }
+    }
+
+    /**
+     * Prueba de extremo a extremo con un TEST_EVENT: BLE -> ACK RECEIVED -> audio por Wi-Fi -> ACK PLAYED.
+     * No usa la secuencia de pagos ni crea eventos en el historial.
+     */
+    suspend fun endToEndTest(synthesize: suspend (File) -> Boolean, cacheDir: File): EndToEndResult {
+        val testId = "test_%010d".format(System.currentTimeMillis() % 10_000_000_000L)
+        if (!isReady) return EndToEndResult(testId, null, null, false, "Equipo no conectado")
+        val start = System.currentTimeMillis()
+        val received = scope.waitForAck(testId, "RECEIVED", ACK_TIMEOUT_MS)
+        val played = scope.waitForAck(testId, "PLAYED", PLAY_TIMEOUT_MS)
+        if (!link.send(DeviceMessages.testEvent(testId))) {
+            received.cancel(); played.cancel()
+            return EndToEndResult(testId, null, null, false, "No se pudo enviar por BLE")
+        }
+        if (received.await() == null) {
+            played.cancel()
+            return EndToEndResult(testId, null, null, false, "Sin ACK RECEIVED en ${ACK_TIMEOUT_MS / 1000} s")
+        }
+        val receivedMs = System.currentTimeMillis() - start
+        var uploaded = false
+        val device = dao.current()
+        val token = audioToken
+        if (device?.wifiIp != null && token != null) {
+            val wav = File(cacheDir, "prueba_$testId.wav")
+            try {
+                if (synthesize(wav)) uploaded = uploader.upload(device.wifiIp, token, testId, wav).isSuccess
+            } finally {
+                wav.delete()
+            }
+        }
+        val playedAck = played.await()
+        val result = EndToEndResult(
+            testId = testId,
+            receivedMs = receivedMs,
+            playedMs = playedAck?.let { System.currentTimeMillis() - start },
+            audioUploaded = uploaded,
+            error = if (playedAck == null) "Sin ACK PLAYED en ${PLAY_TIMEOUT_MS / 1000} s" else null,
+        )
+        log.info("Equipo", "Prueba extremo a extremo $testId: recibido=${result.receivedMs} ms, reproducido=${result.playedMs} ms, audio Wi-Fi=$uploaded")
+        return result
+    }
+
     private fun CoroutineScope.waitForAck(eventId: String, stage: String, timeout: Long) =
         // UNDISPATCHED: se suscribe antes de enviar, para no perder un ACK rápido.
         async(start = CoroutineStart.UNDISPATCHED) {
@@ -159,5 +240,6 @@ class DeviceManager(
         const val ACK_TIMEOUT_MS = 5_000L
         const val PLAY_TIMEOUT_MS = 30_000L
         const val LOW_BATTERY = 15
+        const val SELF_TEST_TIMEOUT_MS = 10_000L
     }
 }
