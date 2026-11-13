@@ -29,7 +29,7 @@ private val FORMATS: List<NotificationFormat> = listOf(
     NotificationFormat(
         id = "plin-ingreso-te-plinio",
         eventType = EventType.INCOMING_TRANSFER,
-        pattern = Regex("""^(?:(?<remitente>[^\n]+?)\s+te\s+(?:plinió|plinio|plineó|plineo|envió|envio)|¡?Te\s+(?:plinaron|pliniaron|plinearon)!?)\s*(?:S/\.?|PEN)?\s*(?<monto>(?:S/\.?|PEN)\s*[\d,.]+)""", RegexOption.IGNORE_CASE),
+        pattern = Regex("""(?:(?<remitente>[^\n]+?)\s+te\s+(?:plinió|plinio|plineó|plineo|envió|envio)|¡?Te\s+(?:plinaron|pliniaron|plinearon)!?)\s*(?:S/\.?|PEN)?\s*(?<monto>(?:S/\.?|PEN)\s*[\d,.]+)""", RegexOption.IGNORE_CASE),
         anonymizedSample = "<NOMBRE> te plinió S/ 99.99",
         expectedAmount = "99.99",
         provenance = "Notificación estándar de Plin (Android)",
@@ -37,7 +37,7 @@ private val FORMATS: List<NotificationFormat> = listOf(
     NotificationFormat(
         id = "plin-egreso",
         eventType = EventType.OUTGOING_TRANSFER,
-        pattern = Regex("""^(?:Enviaste|Pliniaste|Plineaste)\s+(?<monto>(?:S/\.?|PEN)\s*[\d,.]+)\s+a\s+(?<remitente>[^\n]+)""", RegexOption.IGNORE_CASE),
+        pattern = Regex("""(?:Enviaste|Pliniaste|Plineaste)\s+(?<monto>(?:S/\.?|PEN)\s*[\d,.]+)\s+a\s+(?<remitente>[^\n]+)""", RegexOption.IGNORE_CASE),
         anonymizedSample = "Pliniaste S/ 99.99 a <NOMBRE>",
         expectedAmount = "99.99",
         provenance = "Egreso Plin (descarte)",
