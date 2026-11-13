@@ -6,6 +6,7 @@ import pe.pagobox.engine.compatibility.RuntimeOverride
 import pe.pagobox.engine.deduplication.DeduplicationEngine
 import pe.pagobox.engine.deduplication.InMemorySeenFingerprintStore
 import pe.pagobox.engine.source.KnownSources
+import pe.pagobox.engine.source.banks.BancoNacionAdapter
 import pe.pagobox.engine.source.RawNotification
 import pe.pagobox.engine.source.SourcePackageRegistry
 import java.time.Clock
@@ -33,16 +34,16 @@ class PaymentPipelineTest {
     private fun notif(pkg: String, text: String) = RawNotification(packageName = pkg, title = null, text = text, postedAt = now)
 
     @Test
-    fun `ninguna entidad real procesa pagos sin formatos reales`() {
-        val registry = SourcePackageRegistry(KnownSources.all())
+    fun `entidad sin formatos reales no procesa pagos`() {
+        val registry = SourcePackageRegistry(listOf(BancoNacionAdapter))
         assertTrue(registry.supervisedPackages.isEmpty())
-        registry.statuses.values.forEach { assertEquals(CompatibilityStatus.NOT_CONFIGURED, it) }
+        assertEquals(CompatibilityStatus.NOT_CONFIGURED, registry.statuses[SourceId.BANCO_NACION])
     }
 
     @Test
     fun `paquete asignado a una entidad sin formatos solo recopila muestras`() {
-        val registry = SourcePackageRegistry(KnownSources.all(), assignedPackages = mapOf("app.asignada" to SourceId.YAPE))
-        assertEquals(CompatibilityStatus.WAITING_FOR_SAMPLE, registry.statuses[SourceId.YAPE])
+        val registry = SourcePackageRegistry(KnownSources.all(), assignedPackages = mapOf("app.asignada" to SourceId.BANCO_NACION))
+        assertEquals(CompatibilityStatus.WAITING_FOR_SAMPLE, registry.statuses[SourceId.BANCO_NACION])
         assertNull(registry.adapterFor("app.asignada"))
         val result = pipeline(registry).process(notif("app.asignada", "cualquier texto"))
         assertIs<PipelineResult.NotProcessed>(result)

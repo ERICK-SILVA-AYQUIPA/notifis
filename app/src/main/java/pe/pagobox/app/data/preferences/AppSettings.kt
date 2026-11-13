@@ -32,9 +32,9 @@ data class AppSettings(
     /** Fin del modo de diagnóstico de notificaciones (captura de todas las apps), o null si está apagado. */
     val diagnosticUntil: Instant? = null,
     /** URL HTTPS del backend de integraciones oficiales (Canal B); vacío = no configurado. */
-    val backendUrl: String = "",
+    val backendUrl: String = "https://notifis-production.up.railway.app",
     /** Token de este celular para leer eventos oficiales (lo entrega quien administra el backend). */
-    val backendToken: String = "",
+    val backendToken: String = "pagobox_dev_token_sandbox_32chars_ok_12345",
 )
 
 /** Configuración general persistida en la tabla AppSettings (clave-valor). */
@@ -53,8 +53,8 @@ class SettingsRepository(private val dao: AppSettingDao) {
             mutedUntil = m[MUTED_UNTIL]?.toLongOrNull()?.takeIf { it > 0 }?.let(Instant::ofEpochMilli),
             retentionDays = m[RETENTION_DAYS]?.toIntOrNull() ?: 90,
             diagnosticUntil = m[DIAGNOSTIC_UNTIL]?.toLongOrNull()?.takeIf { it > 0 }?.let(Instant::ofEpochMilli),
-            backendUrl = m[BACKEND_URL].orEmpty(),
-            backendToken = m[BACKEND_TOKEN].orEmpty(),
+            backendUrl = m[BACKEND_URL] ?: "https://notifis-production.up.railway.app",
+            backendToken = m[BACKEND_TOKEN] ?: "pagobox_dev_token_sandbox_32chars_ok_12345",
         )
     }
 

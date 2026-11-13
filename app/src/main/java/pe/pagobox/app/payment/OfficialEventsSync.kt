@@ -1,12 +1,14 @@
 package pe.pagobox.app.payment
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import pe.pagobox.app.data.preferences.SettingsRepository
 import pe.pagobox.app.data.repositories.DiagnosticsLogger
@@ -71,25 +73,25 @@ class OfficialEventsSync(
         }
     }
 
-    suspend fun syncOnce() {
+    suspend fun syncOnce() = withContext(Dispatchers.IO) {
         val s = settings.settings.first()
         if (s.backendUrl.isBlank() || s.backendToken.isBlank()) {
             _state.value = OfficialSyncState(configured = false)
             _integrations.value = emptyList()
-            return
+            return@withContext
         }
         val now = System.currentTimeMillis()
         _state.value = _state.value.copy(configured = true, lastAttemptAt = now)
         if (!s.backendUrl.startsWith("https://")) {
             _state.value = _state.value.copy(lastError = "La URL del backend no es HTTPS")
-            return
+            return@withContext
         }
         val cursor = settings.officialCursor()
         val result = runCatching { fetch(s.backendUrl, s.backendToken, cursor) }
         result.onFailure { e ->
             _state.value = _state.value.copy(lastError = e.message ?: e.javaClass.simpleName)
             _integrations.value = emptyList() // sin respuesta no se muestra nada como activo
-            return
+            return@withContext
         }
         val (environment, newCursor, events) = result.getOrThrow()
         if (events.isNotEmpty()) {

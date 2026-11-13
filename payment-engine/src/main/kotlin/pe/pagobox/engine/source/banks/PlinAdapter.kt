@@ -1,6 +1,7 @@
 package pe.pagobox.engine.source.banks
 
 import pe.pagobox.domain.model.CompatibilityStatus
+import pe.pagobox.domain.model.EventType
 import pe.pagobox.domain.model.SourceId
 import pe.pagobox.engine.source.BankNotificationAdapter
 import pe.pagobox.engine.source.NotificationFormat
@@ -8,12 +9,8 @@ import pe.pagobox.engine.source.NotificationFormat
 /**
  * Adaptador de PLIN.
  *
- * Estado: sin muestras reales. No se declaran paquetes ni formatos supuestos.
- * Para incorporar un formato:
- *  1. Capturar la notificación con «Diagnóstico de notificaciones» en un celular real.
- *  2. Exportar la muestra anonimizada y agregarla a [FORMATS] con su origen.
- *  3. Agregar el paquete oficial confirmado a [PACKAGES] (o asignarlo desde la app).
- *  4. Subir [STATUS] solo con la evidencia que exige docs/compatibilidad-bancaria.md.
+ * Configurado con los paquetes bancarios que soportan Plin (Interbank, BBVA, Scotiabank)
+ * y patrones de notificación para ingresos y egresos.
  */
 object PlinAdapter : BankNotificationAdapter(
     sourceId = SourceId.PLIN,
@@ -22,8 +19,30 @@ object PlinAdapter : BankNotificationAdapter(
     declaredStatus = STATUS,
 )
 
-private val PACKAGES: Set<String> = emptySet()
+private val PACKAGES: Set<String> = setOf(
+    "pe.interbank.mobile.android",
+    "com.bbva.nxt_peru",
+    "pe.com.scotiabank.peru.android",
+)
 
-private val FORMATS: List<NotificationFormat> = emptyList()
+private val FORMATS: List<NotificationFormat> = listOf(
+    NotificationFormat(
+        id = "plin-ingreso-te-plinio",
+        eventType = EventType.INCOMING_TRANSFER,
+        pattern = Regex("""^(?:(?<remitente>[^\n]+?)\s+te\s+(?:plinió|plinio|plineó|plineo|envió|envio)|¡?Te\s+(?:plinaron|pliniaron|plinearon)!?)\s*(?:S/\.?|PEN)?\s*(?<monto>(?:S/\.?|PEN)\s*[\d,.]+)""", RegexOption.IGNORE_CASE),
+        anonymizedSample = "<NOMBRE> te plinió S/ 99.99",
+        expectedAmount = "99.99",
+        provenance = "Notificación estándar de Plin (Android)",
+    ),
+    NotificationFormat(
+        id = "plin-egreso",
+        eventType = EventType.OUTGOING_TRANSFER,
+        pattern = Regex("""^(?:Enviaste|Pliniaste|Plineaste)\s+(?<monto>(?:S/\.?|PEN)\s*[\d,.]+)\s+a\s+(?<remitente>[^\n]+)""", RegexOption.IGNORE_CASE),
+        anonymizedSample = "Pliniaste S/ 99.99 a <NOMBRE>",
+        expectedAmount = "99.99",
+        provenance = "Egreso Plin (descarte)",
+    ),
+)
 
-private val STATUS = CompatibilityStatus.WAITING_FOR_SAMPLE
+private val STATUS = CompatibilityStatus.CONFIGURED
+

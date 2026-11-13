@@ -22,6 +22,15 @@ firmware/managed_components/
 .DS_Store
 Thumbs.db
 
+# Room
+schemas/
+app/schemas/
+
+# IDE
+.vscode/
+bin/
+*/bin/
+
 # Backend (base local de desarrollo)
 pagobox-backend.db
 backend/*.db
