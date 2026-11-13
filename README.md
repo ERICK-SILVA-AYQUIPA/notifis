@@ -17,6 +17,7 @@ ESP32 con pantalla y parlante que los anuncia en voz alta.
 | `payment-engine/` | Motor de pagos: adaptadores por entidad, importes, clasificación, deduplicación, verificación, cola de anuncios, frases y protocolo |
 | `app/` | App Android (Kotlin, Compose, Room, TTS, BLE): lector de notificaciones, anuncios, historial, voz, equipo y diagnóstico |
 | `firmware/` | Firmware ESP32-S3 (ESP-IDF, FreeRTOS, NimBLE, LVGL): BLE cifrado, pantalla, audio I2S, Wi-Fi local, OTA, batería y botones |
+| `backend/` | Backend de integraciones oficiales (Canal B): webhooks firmados, idempotencia, auditoría, sandbox/producción; adaptador de Mercado Pago |
 | `docs/` | Especificación, protocolo, hardware, manuales, pruebas y limitaciones |
 
 ## Documentación
@@ -54,7 +55,8 @@ ESP32 con pantalla y parlante que los anuncia en voz alta.
 ## Compilar
 
 ```bash
-./gradlew test                 # motor y pruebas (no necesita Android SDK)
+./gradlew test                 # dominio, motor y backend (no necesita Android SDK)
+./gradlew :backend:run         # backend de webhooks (ver backend/README.md)
 ./gradlew :app:assembleDebug   # app Android (necesita Android SDK)
 ```
 

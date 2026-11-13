@@ -21,3 +21,7 @@ firmware/managed_components/
 # Sistema
 .DS_Store
 Thumbs.db
+
+# Backend (base local de desarrollo)
+pagobox-backend.db
+backend/*.db
