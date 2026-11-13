@@ -24,6 +24,8 @@ ESP32 con pantalla y parlante que los anuncia en voz alta.
 | Documento | Contenido |
 |---|---|
 | [Auditoría](docs/auditoria.md) | Estado real del repositorio, errores encontrados y corregidos |
+| [Arquitectura híbrida — Fase 1](docs/hibrido/fase-1-auditoria.md) | Auditoría frente al modelo Canal A (Android) + Canal B (webhooks oficiales) |
+| [Proveedores del Canal B](docs/hibrido/proveedores-canal-b.md) | Qué permiten Mercado Pago, Izipay y bancos (fuentes oficiales) |
 | [Especificación maestra](docs/especificacion-maestra.md) | Requisitos del producto |
 | [Protocolo](docs/protocolo.md) | BLE GATT, mensajes, ACK, audio y OTA |
 | [Hardware](docs/hardware.md) | Componentes, conexiones, botones y LED |
