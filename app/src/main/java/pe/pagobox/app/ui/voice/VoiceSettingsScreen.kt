@@ -38,7 +38,8 @@ import pe.pagobox.app.data.local.VoiceProfileEntity
 import pe.pagobox.app.ui.components.SectionCard
 import pe.pagobox.app.voice.AndroidVoiceEngine
 import pe.pagobox.domain.model.AnnouncementStatus
-import pe.pagobox.domain.model.EventState
+import pe.pagobox.domain.model.ProviderId
+import pe.pagobox.domain.model.SourceChannel
 import pe.pagobox.domain.model.EventType
 import pe.pagobox.domain.model.Money
 import pe.pagobox.domain.model.PaymentEvent
@@ -207,14 +208,16 @@ private fun PhraseDialog(
 private fun sampleEvent(source: String?, verified: Boolean) = PaymentEvent(
     eventId = "preview",
     sequence = 0,
+    sourceChannel = if (verified) SourceChannel.OFFICIAL_WEBHOOK else SourceChannel.ANDROID_NOTIFICATION,
+    provider = if (verified) ProviderId.MERCADO_PAGO else null,
+    externalTransactionId = if (verified) "vista-previa" else null,
     source = source?.let { SourceId.valueOf(it) } ?: SourceId.YAPE,
     eventType = EventType.INCOMING_TRANSFER,
     money = Money.pen("35.50"),
     senderName = "Juan",
     eventTimestamp = Instant.now(),
     detectedTimestamp = Instant.now(),
-    state = EventState.INCOME_CANDIDATE,
-    verificationStatus = if (verified) VerificationStatus.VERIFIED else VerificationStatus.DETECTED,
+    verificationStatus = if (verified) VerificationStatus.PROVIDER_CONFIRMED else VerificationStatus.INCOME_CANDIDATE,
     announcementStatus = AnnouncementStatus.PENDING,
-    rawNotificationHash = "preview",
+    rawEventReference = "preview",
 )

@@ -22,7 +22,8 @@ object DeviceMessages {
             "currency" to event.money?.currency?.code,
             "sender" to event.senderName,
             "timestamp" to isoOffset.format(event.eventTimestamp.atZone(zone)),
-            "verificationStatus" to event.verificationStatus.name,
+            // Compatibilidad con el firmware actual: solo distingue DETECTED / VERIFIED.
+            "verificationStatus" to if (event.isProviderConfirmed) "VERIFIED" else "DETECTED",
             "announcementStatus" to event.announcementStatus.name,
         )
         return toJson(fields)

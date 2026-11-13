@@ -22,8 +22,8 @@ import pe.pagobox.app.diagnostics.CapturedNotification
 import pe.pagobox.app.diagnostics.NotificationDiagnostics
 import pe.pagobox.app.diagnostics.PackageInspector
 import pe.pagobox.domain.model.CompatibilityStatus
-import pe.pagobox.domain.model.EventState
 import pe.pagobox.domain.model.SourceId
+import pe.pagobox.domain.model.VerificationStatus
 import pe.pagobox.engine.PaymentPipeline
 import pe.pagobox.engine.PipelineResult
 import pe.pagobox.engine.compatibility.CompatibilityRegistry
@@ -166,7 +166,7 @@ class PaymentProcessor(
                 repository.save(result.event, result.reason)
                 resetUnknown(result.event.source)
                 log.info("Motor", "${result.event.eventId} ${result.event.source.displayName}: ${result.reason}")
-                if (result.event.state == EventState.INCOME_CANDIDATE) onIncome()
+                if (result.event.verificationStatus == VerificationStatus.INCOME_CANDIDATE) onIncome()
             }
             is PipelineResult.UnknownFormat -> {
                 diagnostics.store(capture, sourceId, KIND_UNKNOWN, summary)
@@ -288,7 +288,7 @@ class PaymentProcessor(
     }
 
     private fun describe(result: PipelineResult): String = when (result) {
-        is PipelineResult.Created -> "Evento ${result.event.eventId} (${result.event.state.name}): ${result.reason}"
+        is PipelineResult.Created -> "Evento ${result.event.eventId} (${result.event.verificationStatus.name}): ${result.reason}"
         is PipelineResult.UnknownFormat -> "Formato desconocido: ${result.reason}"
         is PipelineResult.NotProcessed -> "No procesado: ${result.reason}"
         is PipelineResult.Duplicate -> "Duplicado"

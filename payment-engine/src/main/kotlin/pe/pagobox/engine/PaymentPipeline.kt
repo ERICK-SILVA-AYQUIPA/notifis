@@ -1,8 +1,8 @@
 package pe.pagobox.engine
 
 import pe.pagobox.domain.model.AnnouncementStatus
-import pe.pagobox.domain.model.EventState
 import pe.pagobox.domain.model.PaymentEvent
+import pe.pagobox.domain.model.SourceChannel
 import pe.pagobox.domain.model.SourceId
 import pe.pagobox.domain.model.VerificationStatus
 import pe.pagobox.engine.classifier.PaymentClassifier
@@ -21,7 +21,7 @@ sealed interface PipelineResult {
     data class UnknownFormat(val source: SourceId, val reason: String) : PipelineResult
     data class Duplicate(val fingerprint: String) : PipelineResult
     data class Rejected(val source: SourceId, val reason: String) : PipelineResult
-    /** Evento creado (INCOME_CANDIDATE o PENDING_REVIEW). Solo INCOME_CANDIDATE se anuncia. */
+    /** Evento creado (INCOME_CANDIDATE o PENDING_VERIFICATION). Solo INCOME_CANDIDATE se anuncia. */
     data class Created(val event: PaymentEvent, val reason: String) : PipelineResult
 }
 
@@ -53,7 +53,7 @@ class PaymentPipeline(
         }
 
         val classification = classifier.classify(parsed, raw.fullText, now)
-        if (classification.state == EventState.REJECTED) {
+        if (classification.state == VerificationStatus.REJECTED) {
             return PipelineResult.Rejected(source, classification.reason)
         }
 
@@ -61,20 +61,21 @@ class PaymentPipeline(
         val event = PaymentEvent(
             eventId = newEventId(sequence),
             sequence = sequence,
+            sourceChannel = SourceChannel.ANDROID_NOTIFICATION,
+            sourceApplication = raw.packageName,
             source = parsed.source,
             eventType = parsed.eventType,
             money = parsed.money,
             senderName = parsed.senderName,
             eventTimestamp = parsed.eventTimestamp,
             detectedTimestamp = now,
-            state = classification.state,
-            verificationStatus = VerificationStatus.DETECTED,
-            announcementStatus = if (classification.state == EventState.INCOME_CANDIDATE) {
+            verificationStatus = classification.state,
+            announcementStatus = if (classification.state == VerificationStatus.INCOME_CANDIDATE) {
                 AnnouncementStatus.PENDING
             } else {
                 AnnouncementStatus.SKIPPED
             },
-            rawNotificationHash = deduplication.fingerprint(raw),
+            rawEventReference = deduplication.fingerprint(raw),
         )
         return PipelineResult.Created(event, classification.reason)
     }

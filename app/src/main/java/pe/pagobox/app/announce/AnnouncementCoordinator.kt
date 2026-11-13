@@ -24,7 +24,6 @@ import pe.pagobox.app.system.ShortWakeLock
 import pe.pagobox.app.voice.AndroidVoiceEngine
 import pe.pagobox.app.voice.PhraseSelector
 import pe.pagobox.domain.model.AnnouncementStatus
-import pe.pagobox.domain.model.EventState
 import pe.pagobox.domain.model.PaymentEvent
 import pe.pagobox.engine.queue.AnnouncementQueue
 import java.time.Instant
@@ -101,7 +100,7 @@ class AnnouncementCoordinator(
     private suspend fun announce(event: PaymentEvent, output: AnnouncementOutput, phoneFallback: Boolean): Boolean {
         if (Instant.now().toEpochMilli() - event.detectedTimestamp.toEpochMilli() > MAX_PENDING_AGE_MS) {
             // Un aviso muy atrasado confundiría al comerciante: se registra como no entregado.
-            payments.updateAnnouncement(event.eventId, AnnouncementStatus.FAILED, EventState.DELIVERY_FAILED)
+            payments.updateAnnouncement(event.eventId, AnnouncementStatus.FAILED)
             log.warn("Anuncios", "${event.eventId} no se anunció a tiempo; queda en el historial como no entregado")
             return true
         }
@@ -109,7 +108,7 @@ class AnnouncementCoordinator(
         val phrase = PhraseSelector.select(event, templateDao.enabled(), profile.announceSender)
         if (phrase == null) {
             log.error("Anuncios", "No se pudo generar la frase de ${event.eventId}")
-            payments.updateAnnouncement(event.eventId, AnnouncementStatus.SKIPPED, EventState.PENDING_REVIEW)
+            payments.updateAnnouncement(event.eventId, AnnouncementStatus.SKIPPED)
             return true
         }
 
@@ -143,12 +142,12 @@ class AnnouncementCoordinator(
         }
 
         return if (played) {
-            payments.updateAnnouncement(event.eventId, AnnouncementStatus.ANNOUNCED, EventState.ANNOUNCED)
+            payments.updateAnnouncement(event.eventId, AnnouncementStatus.ANNOUNCED)
             _lastError.value = null
             true
         } else {
             // Sigue pendiente en la base de datos para reintentar.
-            payments.updateAnnouncement(event.eventId, AnnouncementStatus.PENDING, EventState.DELIVERY_FAILED)
+            payments.updateAnnouncement(event.eventId, AnnouncementStatus.PENDING)
             false
         }
     }

@@ -29,14 +29,14 @@ class VoiceTest {
             "Se detectó un posible ingreso de 100 soles por BCP",
             renderer.phraseFor(TestFixtures.event("c", 3, "100", SourceId.BCP)),
         )
-        val verified = TestFixtures.event("d", 4, "50").copy(verificationStatus = VerificationStatus.VERIFIED)
+        val verified = TestFixtures.officialEvent("d", amount = "50").copy(verificationStatus = VerificationStatus.PROVIDER_CONFIRMED)
         assertEquals("¡Pago confirmado de 50 soles!", renderer.phraseFor(verified))
     }
 
     @Test
     fun `un evento detectado nunca usa la frase de pago confirmado`() {
         val detected = TestFixtures.event("a", 1, "25", SourceId.YAPE)
-        val confirmed = detected.copy(verificationStatus = VerificationStatus.VERIFIED)
+        val confirmed = TestFixtures.officialEvent("b", amount = "25").copy(verificationStatus = VerificationStatus.PROVIDER_CONFIRMED)
         val a = renderer.phraseFor(detected)!!
         val b = renderer.phraseFor(confirmed)!!
         assertEquals(false, a.contains("confirmado", ignoreCase = true))

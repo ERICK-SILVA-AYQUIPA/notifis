@@ -101,10 +101,10 @@ private val MAIN_CHECKS = setOf("Servicio de lectura", "Equipo PAGOBOX", "Voz en
 private fun TotalsCard(s: DailySummary, onOpenEvent: (String) -> Unit) {
     SectionCard("Hoy") {
         // Totales separados para evitar confusiones contables (sección 8).
-        LabeledValue("Ingresos detectados", formatMoney(s.detectedTotalCents, "PEN"))
-        LabeledValue("Ingresos verificados", formatMoney(s.verifiedTotalCents, "PEN"))
+        LabeledValue("Posibles ingresos (notificaciones)", formatMoney(s.detectedTotalCents, "PEN"))
+        LabeledValue("Confirmados por proveedor", formatMoney(s.verifiedTotalCents, "PEN"))
         LabeledValue("Eventos registrados", s.eventCount.toString())
-        LabeledValue("Pagos verificados", s.verifiedCount.toString())
+        LabeledValue("Pagos confirmados", s.verifiedCount.toString())
         Text(
             "Los ingresos detectados provienen de notificaciones y no son una confirmación bancaria.",
             style = MaterialTheme.typography.bodySmall,

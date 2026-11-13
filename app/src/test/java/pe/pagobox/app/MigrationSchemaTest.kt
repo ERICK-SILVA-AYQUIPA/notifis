@@ -60,7 +60,7 @@ class MigrationSchemaTest {
 
     @Test
     fun `la migracion 2 a 3 coincide con el esquema de Room`() =
-        assertCreatesTables(PagoboxDatabase.MIGRATION_2_3, listOf("unknown_financial_apps"))
+        assertCreatesTables(PagoboxDatabase.MIGRATION_2_3, listOf("unknown_financial_apps", "payment_events"))
 
     /** Bloque JSON de la entidad [table] dentro del esquema (desde su tableName hasta la siguiente entidad). */
     private fun schemaBlockFor(schema: String, table: String): String {

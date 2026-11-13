@@ -33,17 +33,9 @@ interface PaymentEventDao {
     @Query("SELECT COALESCE(MAX(sequence), 0) FROM payment_events")
     suspend fun maxSequence(): Long
 
-    @Query(
-        "UPDATE payment_events SET announcementStatus = :status, state = :state, updatedAt = :now " +
-            "WHERE eventId = :eventId",
-    )
-    suspend fun updateAnnouncement(eventId: String, status: String, state: String, now: Long)
-
-    @Query(
-        "UPDATE payment_events SET verificationStatus = 'VERIFIED', state = 'VERIFIED', updatedAt = :now " +
-            "WHERE eventId = :eventId",
-    )
-    suspend fun markVerified(eventId: String, now: Long)
+    /** Solo cambia el anuncio; la verificación es otra dimensión y no se toca aquí. */
+    @Query("UPDATE payment_events SET announcementStatus = :status, updatedAt = :now WHERE eventId = :eventId")
+    suspend fun updateAnnouncement(eventId: String, status: String, now: Long)
 
     @Query("DELETE FROM payment_events WHERE detectedTimestamp < :before")
     suspend fun deleteOlderThan(before: Long): Int

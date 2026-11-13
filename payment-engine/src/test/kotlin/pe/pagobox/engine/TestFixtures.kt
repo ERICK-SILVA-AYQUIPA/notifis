@@ -1,10 +1,11 @@
 package pe.pagobox.engine
 
 import pe.pagobox.domain.model.AnnouncementStatus
-import pe.pagobox.domain.model.EventState
 import pe.pagobox.domain.model.EventType
 import pe.pagobox.domain.model.Money
 import pe.pagobox.domain.model.PaymentEvent
+import pe.pagobox.domain.model.ProviderId
+import pe.pagobox.domain.model.SourceChannel
 import pe.pagobox.domain.model.SourceId
 import pe.pagobox.domain.model.VerificationStatus
 import pe.pagobox.domain.model.CompatibilityStatus
@@ -68,15 +69,39 @@ object TestFixtures {
     ) = PaymentEvent(
         eventId = id,
         sequence = sequence,
+        sourceChannel = SourceChannel.ANDROID_NOTIFICATION,
+        sourceApplication = "app.de.prueba",
         source = source,
         eventType = EventType.INCOMING_TRANSFER,
         money = Money.pen(amount),
         senderName = sender,
         eventTimestamp = at,
         detectedTimestamp = at,
-        state = EventState.INCOME_CANDIDATE,
+        verificationStatus = VerificationStatus.INCOME_CANDIDATE,
+        announcementStatus = AnnouncementStatus.PENDING,
+        rawEventReference = "hash-$id",
+    )
+
+    /** Evento del canal oficial (Canal B) aún no confirmado. Datos de prueba, no de un proveedor real. */
+    fun officialEvent(
+        id: String,
+        externalId: String = "TEST-1",
+        amount: String = "25.00",
+        provider: ProviderId = ProviderId.MERCADO_PAGO,
+    ) = PaymentEvent(
+        eventId = id,
+        sequence = 0,
+        sourceChannel = SourceChannel.OFFICIAL_WEBHOOK,
+        provider = provider,
+        source = SourceId.YAPE,
+        externalTransactionId = externalId,
+        eventType = EventType.INCOMING_TRANSFER,
+        money = Money.pen(amount),
+        senderName = null,
+        eventTimestamp = Instant.parse("2026-11-12T20:30:00Z"),
+        detectedTimestamp = Instant.parse("2026-11-12T20:30:01Z"),
         verificationStatus = VerificationStatus.DETECTED,
         announcementStatus = AnnouncementStatus.PENDING,
-        rawNotificationHash = "hash-$id",
+        rawEventReference = "raw-$id",
     )
 }

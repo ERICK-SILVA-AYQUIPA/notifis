@@ -3,7 +3,6 @@ package pe.pagobox.engine.voice
 import pe.pagobox.domain.model.EventType
 import pe.pagobox.domain.model.PaymentEvent
 import pe.pagobox.domain.model.SourceId
-import pe.pagobox.domain.model.VerificationStatus
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -73,7 +72,7 @@ object DefaultPhrases {
     const val CONFIRMED = "¡Pago confirmado de {monto_hablado}!"
 
     fun forEvent(event: PaymentEvent): String = when {
-        event.verificationStatus == VerificationStatus.VERIFIED -> CONFIRMED
+        event.isProviderConfirmed -> CONFIRMED
         event.source == SourceId.OTHER -> DETECTED
         else -> DETECTED_WITH_SOURCE
     }

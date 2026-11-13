@@ -11,7 +11,6 @@ import pe.pagobox.app.data.local.PagoboxDatabase
 import pe.pagobox.app.data.local.PaymentEventEntity
 import pe.pagobox.app.data.local.SeenFingerprintEntity
 import pe.pagobox.domain.model.AnnouncementStatus
-import pe.pagobox.domain.model.EventState
 import pe.pagobox.domain.model.PaymentEvent
 import pe.pagobox.engine.deduplication.SeenFingerprintStore
 import java.time.Instant
@@ -62,11 +61,11 @@ class PaymentRepository(private val db: PagoboxDatabase) {
     private fun summarySince(start: Long): Flow<DailySummary> {
         return dao.observeSince(start).map { events ->
             val incomes = events.filter {
-                it.state in INCOME_STATES && it.amountCents != null && it.currency == "PEN"
+                it.verificationStatus in INCOME_STATES && it.amountCents != null && it.currency == "PEN"
             }
-            val verified = incomes.filter { it.verificationStatus == "VERIFIED" }
+            val verified = incomes.filter { it.verificationStatus == "PROVIDER_CONFIRMED" }
             DailySummary(
-                detectedTotalCents = incomes.filter { it.verificationStatus == "DETECTED" }.sumOf { it.amountCents!! },
+                detectedTotalCents = incomes.filter { it.verificationStatus == "INCOME_CANDIDATE" }.sumOf { it.amountCents!! },
                 verifiedTotalCents = verified.sumOf { it.amountCents!! },
                 eventCount = events.size,
                 verifiedCount = verified.size,
@@ -79,8 +78,8 @@ class PaymentRepository(private val db: PagoboxDatabase) {
 
     suspend fun announcedIds(): List<String> = dao.announcedIds()
 
-    suspend fun updateAnnouncement(eventId: String, status: AnnouncementStatus, state: EventState) =
-        dao.updateAnnouncement(eventId, status.name, state.name, System.currentTimeMillis())
+    suspend fun updateAnnouncement(eventId: String, status: AnnouncementStatus) =
+        dao.updateAnnouncement(eventId, status.name, System.currentTimeMillis())
 
     suspend fun applyRetention(days: Int) {
         val before = System.currentTimeMillis() - days * 24L * 3600 * 1000
@@ -92,6 +91,7 @@ class PaymentRepository(private val db: PagoboxDatabase) {
     }
 
     private companion object {
-        val INCOME_STATES = setOf("INCOME_CANDIDATE", "VERIFIED", "ANNOUNCED", "DELIVERY_FAILED")
+        /** Posibles ingresos (Canal A) y pagos confirmados (Canal B). Los duplicados no suman dos veces. */
+        val INCOME_STATES = setOf("INCOME_CANDIDATE", "PROVIDER_CONFIRMED")
     }
 }

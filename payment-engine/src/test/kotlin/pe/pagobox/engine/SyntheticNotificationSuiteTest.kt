@@ -2,7 +2,7 @@ package pe.pagobox.engine
 
 import pe.pagobox.domain.model.AnnouncementStatus
 import pe.pagobox.domain.model.Currency
-import pe.pagobox.domain.model.EventState
+import pe.pagobox.domain.model.SourceChannel
 import pe.pagobox.domain.model.VerificationStatus
 import pe.pagobox.engine.deduplication.DeduplicationEngine
 import pe.pagobox.engine.deduplication.InMemorySeenFingerprintStore
@@ -45,8 +45,8 @@ class SyntheticNotificationSuiteTest {
     @Test
     fun `1 pago recibido se detecta como candidato y nunca como verificado`() {
         val e = created("PRUEBA: Ana te envió S/ 20")
-        assertEquals(EventState.INCOME_CANDIDATE, e.state)
-        assertEquals(VerificationStatus.DETECTED, e.verificationStatus)
+        assertEquals(VerificationStatus.INCOME_CANDIDATE, e.verificationStatus)
+        assertEquals(SourceChannel.ANDROID_NOTIFICATION, e.sourceChannel)
         assertEquals(AnnouncementStatus.PENDING, e.announcementStatus)
         assertEquals(BigDecimal("20.00"), e.money!!.amount)
     }
@@ -91,7 +91,7 @@ class SyntheticNotificationSuiteTest {
     @Test
     fun `6 notificacion incompleta queda pendiente de revision y no se anuncia`() {
         val e = created("PRUEBA: recibiste un pago")
-        assertEquals(EventState.PENDING_REVIEW, e.state)
+        assertEquals(VerificationStatus.PENDING_VERIFICATION, e.verificationStatus)
         assertEquals(AnnouncementStatus.SKIPPED, e.announcementStatus)
         assertEquals(null, e.money)
     }
@@ -118,7 +118,7 @@ class SyntheticNotificationSuiteTest {
     fun `9b importe ambiguo no se inventa`() {
         val e = created("PRUEBA: Ana te envió S/ 1,25")
         assertEquals(null, e.money)
-        assertEquals(EventState.PENDING_REVIEW, e.state)
+        assertEquals(VerificationStatus.PENDING_VERIFICATION, e.verificationStatus)
     }
 
     @Test

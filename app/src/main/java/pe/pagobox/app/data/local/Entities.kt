@@ -10,24 +10,40 @@ import androidx.room.PrimaryKey
  */
 @Entity(
     tableName = "payment_events",
-    indices = [Index(value = ["eventId"], unique = true), Index("rawNotificationHash"), Index("announcementStatus")],
+    indices = [
+        Index(value = ["eventId"], unique = true),
+        Index("rawEventReference"),
+        Index("announcementStatus"),
+        // Idempotencia del Canal B: un pago del proveedor se registra una sola vez.
+        Index(value = ["provider", "externalTransactionId"], unique = true),
+    ],
 )
 data class PaymentEventEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val eventId: String,
     val sequence: Long,
+    /** ANDROID_NOTIFICATION u OFFICIAL_WEBHOOK. */
+    val sourceChannel: String,
+    /** Proveedor oficial (solo Canal B). */
+    val provider: String?,
+    /** Paquete Android de origen (solo Canal A). */
+    val sourceApplication: String?,
     val sourceId: String,
+    val externalTransactionId: String?,
     val eventType: String,
-    /** Importe en céntimos para evitar errores de redondeo; null si la notificación no lo trae. */
+    /** Importe en céntimos para evitar errores de redondeo; null si la fuente no lo trae. */
     val amountCents: Long?,
     val currency: String?,
     val senderName: String?,
+    val recipient: String?,
     val eventTimestamp: Long,
     val detectedTimestamp: Long,
-    val state: String,
+    /** Ver [pe.pagobox.domain.model.VerificationStatus]. */
     val verificationStatus: String,
     val announcementStatus: String,
-    val rawNotificationHash: String,
+    /** Huella de la notificación (Canal A) o referencia al registro original del backend (Canal B). */
+    val rawEventReference: String,
+    val duplicateOf: String?,
     val deviceId: String?,
     val stateReason: String,
     val createdAt: Long,
